@@ -1,80 +1,38 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Users, UserCheck, DollarSign, Search, Filter, Eye, CreditCard as Edit, Ban } from 'lucide-react';
+import { listUsers, type User } from '../services/users';
 
 const ManageUsers: React.FC = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const users = [
-    {
-      id: 1,
-      name: 'Ahmad Hassan',
-      email: 'ahmad.hassan@email.com',
-      phone: '+92 300 1234567',
-      balance: 125.50,
-      status: 'active',
-      verified: true,
-      joinDate: '2025-01-15',
-      referrals: 12,
-      totalEarned: 450.75
-    },
-    {
-      id: 2,
-      name: 'Fatima Khan',
-      email: 'fatima.khan@email.com',
-      phone: '+92 301 2345678',
-      balance: 89.25,
-      status: 'active',
-      verified: true,
-      joinDate: '2025-01-18',
-      referrals: 8,
-      totalEarned: 320.50
-    },
-    {
-      id: 3,
-      name: 'Muhammad Ali',
-      email: 'muhammad.ali@email.com',
-      phone: '+92 302 3456789',
-      balance: 0,
-      status: 'inactive',
-      verified: false,
-      joinDate: '2025-01-20',
-      referrals: 0,
-      totalEarned: 25.00
-    },
-    {
-      id: 4,
-      name: 'Aisha Ahmed',
-      email: 'aisha.ahmed@email.com',
-      phone: '+92 303 4567890',
-      balance: 200.75,
-      status: 'active',
-      verified: true,
-      joinDate: '2025-01-12',
-      referrals: 15,
-      totalEarned: 680.25
-    },
-    {
-      id: 5,
-      name: 'Hassan Sheikh',
-      email: 'hassan.sheikh@email.com',
-      phone: '+92 304 5678901',
-      balance: 350.00,
-      status: 'active',
-      verified: true,
-      joinDate: '2025-01-10',
-      referrals: 25,
-      totalEarned: 1200.50
+  const refresh = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await listUsers();
+      setUsers(data || []);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Failed to load users');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch = (user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (user.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     if (activeTab === 'all') return matchesSearch;
     if (activeTab === 'active') return matchesSearch && user.status === 'active';
-    if (activeTab === 'withBalance') return matchesSearch && user.balance > 0;
+    if (activeTab === 'withBalance') return matchesSearch && (user.balance || 0) > 0;
     
     return matchesSearch;
   });
@@ -94,7 +52,7 @@ const ManageUsers: React.FC = () => {
     },
     {
       title: 'Users with Balance',
-      value: users.filter(u => u.balance > 0).length,
+      value: users.filter(u => (u.balance || 0) > 0).length,
       icon: DollarSign,
       color: 'bg-purple-500'
     }
@@ -168,6 +126,13 @@ const ManageUsers: React.FC = () => {
         </div>
       </div>
 
+      {loading && (
+        <div className="p-4 bg-white border rounded-lg">Loading users...</div>
+      )}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
+      )}
+
       {/* Users Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
@@ -191,13 +156,13 @@ const ManageUsers: React.FC = () => {
                       <div className="flex-shrink-0 h-10 w-10">
                         <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                           <span className="text-green-800 font-medium text-sm">
-                            {user.name.charAt(0)}
+                            {(user.name || user.email || '?').charAt(0)}
                           </span>
                         </div>
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900 flex items-center">
-                          {user.name}
+                          {user.name || user.email || '—'}
                           {user.verified && (
                             <UserCheck className="ml-1 text-green-500" size={16} />
                           )}
@@ -209,7 +174,7 @@ const ManageUsers: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-lg font-semibold text-green-600">
-                      ${user.balance.toFixed(2)}
+                      {typeof user.balance === 'number' ? `$${user.balance.toFixed(2)}` : '—'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -222,13 +187,13 @@ const ManageUsers: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.referrals}
+                    {user.referralsCount ?? 0}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ${user.totalEarned.toFixed(2)}
+                    {typeof user.totalEarned === 'number' ? `$${user.totalEarned.toFixed(2)}` : '—'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.joinDate}
+                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : ''}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex space-x-2">

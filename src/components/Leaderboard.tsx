@@ -1,121 +1,21 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Trophy, Crown, Star, Medal, Gift, Calendar } from 'lucide-react';
+import { getTopEarners, type TopEarner } from '../services/commissions';
 
 const Leaderboard: React.FC = () => {
   const [currentPeriod, setCurrentPeriod] = useState('current');
+  const [leaders, setLeaders] = useState<TopEarner[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const leaderboardData = [
-    {
-      rank: 1,
-      name: 'Hassan Sheikh',
-      email: 'hassan.sheikh@email.com',
-      phone: '+92 304 5678901',
-      points: 2850,
-      referrals: 45,
-      bonus: 100,
-      avatar: 'H',
-      isEligible: true
-    },
-    {
-      rank: 2,
-      name: 'Aisha Ahmed',
-      email: 'aisha.ahmed@email.com',
-      phone: '+92 303 4567890',
-      points: 2650,
-      referrals: 38,
-      bonus: 80,
-      avatar: 'A',
-      isEligible: true
-    },
-    {
-      rank: 3,
-      name: 'Ahmad Hassan',
-      email: 'ahmad.hassan@email.com',
-      phone: '+92 300 1234567',
-      points: 2450,
-      referrals: 35,
-      bonus: 60,
-      avatar: 'A',
-      isEligible: true
-    },
-    {
-      rank: 4,
-      name: 'Fatima Khan',
-      email: 'fatima.khan@email.com',
-      phone: '+92 301 2345678',
-      points: 2200,
-      referrals: 32,
-      bonus: 50,
-      avatar: 'F',
-      isEligible: true
-    },
-    {
-      rank: 5,
-      name: 'Muhammad Ali',
-      email: 'muhammad.ali@email.com',
-      phone: '+92 302 3456789',
-      points: 2100,
-      referrals: 28,
-      bonus: 40,
-      avatar: 'M',
-      isEligible: true
-    },
-    {
-      rank: 6,
-      name: 'Sara Malik',
-      email: 'sara.malik@email.com',
-      phone: '+92 305 6789012',
-      points: 1950,
-      referrals: 26,
-      bonus: 35,
-      avatar: 'S',
-      isEligible: true
-    },
-    {
-      rank: 7,
-      name: 'Omar Khan',
-      email: 'omar.khan@email.com',
-      phone: '+92 306 7890123',
-      points: 1850,
-      referrals: 24,
-      bonus: 30,
-      avatar: 'O',
-      isEligible: true
-    },
-    {
-      rank: 8,
-      name: 'Zainab Ali',
-      email: 'zainab.ali@email.com',
-      phone: '+92 307 8901234',
-      points: 1750,
-      referrals: 22,
-      bonus: 25,
-      avatar: 'Z',
-      isEligible: true
-    },
-    {
-      rank: 9,
-      name: 'Usman Ahmed',
-      email: 'usman.ahmed@email.com',
-      phone: '+92 308 9012345',
-      points: 1650,
-      referrals: 20,
-      bonus: 20,
-      avatar: 'U',
-      isEligible: true
-    },
-    {
-      rank: 10,
-      name: 'Hina Sheikh',
-      email: 'hina.sheikh@email.com',
-      phone: '+92 309 0123456',
-      points: 1550,
-      referrals: 18,
-      bonus: 15,
-      avatar: 'H',
-      isEligible: true
-    }
-  ];
+  useEffect(() => {
+    setLoading(true);
+    setError('');
+    getTopEarners()
+      .then((d) => setLeaders(d || []))
+      .catch((e) => setError(e?.response?.data?.message || 'Failed to load leaderboard'))
+      .finally(() => setLoading(false));
+  }, []);
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Crown className="text-yellow-500" size={24} />;
@@ -131,7 +31,7 @@ const Leaderboard: React.FC = () => {
     return 'bg-gradient-to-r from-green-400 to-green-600 text-white';
   };
 
-  const totalBonusPool = leaderboardData.reduce((sum, leader) => sum + leader.bonus, 0);
+  const totalBonusPool = leaders.reduce((sum, leader) => sum + (leader.bonus || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -204,7 +104,7 @@ const Leaderboard: React.FC = () => {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Qualified Leaders</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {leaderboardData.filter(l => l.isEligible).length}/10
+                    {leaders.filter(l => (l.bonus || 0) > 0).length}/10
                   </p>
                 </div>
               </div>
@@ -215,7 +115,7 @@ const Leaderboard: React.FC = () => {
 
       {/* Top 3 Highlight */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {leaderboardData.slice(0, 3).map((leader) => (
+        {leaders.slice(0, 3).map((leader, idx) => (
           <div key={leader.rank} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className={`p-4 ${getRankBadge(leader.rank)}`}>
               <div className="flex items-center justify-between">
@@ -223,14 +123,14 @@ const Leaderboard: React.FC = () => {
                   {getRankIcon(leader.rank)}
                   <span className="font-bold text-lg">#{leader.rank}</span>
                 </div>
-                <span className="text-lg font-bold">${leader.bonus}</span>
+                <span className="text-lg font-bold">${leader.bonus ?? 0}</span>
               </div>
             </div>
             
             <div className="p-6">
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                  <span className="text-green-800 font-bold text-lg">{leader.avatar}</span>
+                  <span className="text-green-800 font-bold text-lg">{(leader.name || '?').charAt(0)}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{leader.name}</p>
@@ -241,11 +141,11 @@ const Leaderboard: React.FC = () => {
               
               <div className="mt-4 grid grid-cols-2 gap-4 text-center">
                 <div>
-                  <p className="text-lg font-bold text-gray-900">{leader.points}</p>
+                  <p className="text-lg font-bold text-gray-900">{leader.points ?? 0}</p>
                   <p className="text-xs text-gray-500">Points</p>
                 </div>
                 <div>
-                  <p className="text-lg font-bold text-gray-900">{leader.referrals}</p>
+                  <p className="text-lg font-bold text-gray-900">{leader.referrals ?? 0}</p>
                   <p className="text-xs text-gray-500">Referrals</p>
                 </div>
               </div>
@@ -274,8 +174,8 @@ const Leaderboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {leaderboardData.map((leader) => (
-                <tr key={leader.rank} className="hover:bg-gray-50">
+              {leaders.map((leader, i) => (
+                <tr key={i} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       {getRankIcon(leader.rank)}
@@ -287,7 +187,7 @@ const Leaderboard: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <span className="text-green-800 font-medium text-sm">{leader.avatar}</span>
+                        <span className="text-green-800 font-medium text-sm">{(leader.name || '?').charAt(0)}</span>
                       </div>
                       <div>
                         <div className="text-sm font-medium text-gray-900">{leader.name}</div>
@@ -298,26 +198,26 @@ const Leaderboard: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-lg font-semibold text-blue-600">
-                      {leader.points.toLocaleString()}
+                      {(leader.points || 0).toLocaleString()}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-lg font-semibold text-purple-600">
-                      {leader.referrals}
+                      {leader.referrals ?? 0}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-lg font-bold text-green-600">
-                      ${leader.bonus}
+                      ${leader.bonus ?? 0}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      leader.isEligible
+                      (leader.bonus || 0) > 0
                         ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {leader.isEligible ? 'Qualified' : 'Not Qualified'}
+                      {(leader.bonus || 0) > 0 ? 'Qualified' : 'Not Qualified'}
                     </span>
                   </td>
                 </tr>
@@ -326,6 +226,12 @@ const Leaderboard: React.FC = () => {
           </table>
         </div>
       </div>
+      {loading && (
+        <div className="p-4 bg-white border rounded-lg">Loading leaderboard...</div>
+      )}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
+      )}
     </div>
   );
 };

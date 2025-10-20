@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Shield, Eye, EyeOff, Lock, User } from 'lucide-react';
+import { login as apiLogin, me as apiMe } from '../services/auth';
 
 interface LoginPageProps {
   onLogin: (success: boolean) => void;
@@ -19,16 +20,25 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     setIsLoading(true);
     setError('');
 
-    // Simulate authentication - replace with real authentication
-    setTimeout(() => {
-      if (credentials.username === 'admin' && credentials.password === 'bsp123') {
+    try {
+      // Treat username as email for API login
+      const { token } = await apiLogin(credentials.username, credentials.password);
+      localStorage.setItem('pakads_admin_token', token);
+      const me = await apiMe();
+      if (me?.role && me.role.toLowerCase() === 'admin') {
         onLogin(true);
       } else {
-        setError('Invalid username or password');
+        localStorage.removeItem('pakads_admin_token');
+        setError('You do not have admin access.');
         onLogin(false);
       }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Invalid credentials';
+      setError(msg);
+      onLogin(false);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (

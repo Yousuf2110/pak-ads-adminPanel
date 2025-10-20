@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import { Bell, User, Clock, X, ChevronDown, ChevronUp, Phone, Mail, MapPin } from 'lucide-react';
+import { Bell, User, Clock, ChevronDown, ChevronUp, Phone, Mail, MapPin } from 'lucide-react';
 
 interface NotificationData {
-  id: number;
+  id: number | string;
   message: string;
-  memberName: string;
-  email: string;
-  phone: string;
-  loginTime: string;
+  memberName?: string;
+  email?: string;
+  phone?: string;
+  loginTime?: string;
   location?: string;
-  time: string;
-  isNew: boolean;
-  type: 'login' | 'signup' | 'withdrawal' | 'deposit';
+  time?: string;
+  isNew?: boolean;
+  type?: 'login' | 'signup' | 'withdrawal' | 'deposit' | string;
 }
 
 interface NotificationPanelProps {
@@ -23,64 +23,12 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
   notifications = [], 
   maxVisible = 3 
 }) => {
-  const [expandedNotifications, setExpandedNotifications] = useState<Set<number>>(new Set());
+  const [expandedNotifications, setExpandedNotifications] = useState<Set<string | number>>(new Set());
   const [showAll, setShowAll] = useState(false);
-
-  const defaultNotifications: NotificationData[] = [
-    {
-      id: 1,
-      message: "Ahmad Hassan ka account login ho gaya hai",
-      memberName: "Ahmad Hassan",
-      email: "ahmad.hassan@email.com",
-      phone: "+92 300 1234567",
-      loginTime: "10:30 AM",
-      location: "Karachi, Pakistan",
-      time: "2 mins ago",
-      isNew: true,
-      type: 'login'
-    },
-    {
-      id: 2,
-      message: "Fatima Khan ka account login ho gaya hai",
-      memberName: "Fatima Khan", 
-      email: "fatima.khan@email.com",
-      phone: "+92 301 2345678",
-      loginTime: "11:15 AM",
-      location: "Lahore, Pakistan",
-      time: "5 mins ago",
-      isNew: true,
-      type: 'login'
-    },
-    {
-      id: 3,
-      message: "Muhammad Ali ka account login ho gaya hai",
-      memberName: "Muhammad Ali",
-      email: "muhammad.ali@email.com",
-      phone: "+92 302 3456789",
-      loginTime: "11:45 AM",
-      location: "Islamabad, Pakistan",
-      time: "8 mins ago",
-      isNew: false,
-      type: 'login'
-    },
-    {
-      id: 4,
-      message: "Aisha Ahmed ne naya account banaya hai",
-      memberName: "Aisha Ahmed",
-      email: "aisha.ahmed@email.com", 
-      phone: "+92 303 4567890",
-      loginTime: "12:00 PM",
-      location: "Faisalabad, Pakistan",
-      time: "15 mins ago",
-      isNew: false,
-      type: 'signup'
-    }
-  ];
-
-  const notificationData = notifications.length > 0 ? notifications : defaultNotifications;
+  const notificationData = notifications;
   const visibleNotifications = showAll ? notificationData : notificationData.slice(0, maxVisible);
 
-  const toggleExpanded = (id: number) => {
+  const toggleExpanded = (id: string | number) => {
     const newExpanded = new Set(expandedNotifications);
     if (newExpanded.has(id)) {
       newExpanded.delete(id);
@@ -90,8 +38,8 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     setExpandedNotifications(newExpanded);
   };
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
+  const getNotificationIcon = (type?: string) => {
+    switch (type || '') {
       case 'login': return '🔐';
       case 'signup': return '👤';
       case 'withdrawal': return '💸';
@@ -100,12 +48,12 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     }
   };
 
-  const getNotificationColor = (type: string, isNew: boolean) => {
+  const getNotificationColor = (type?: string, isNew?: boolean) => {
     if (isNew) {
       return 'border-l-green-500 bg-green-50';
     }
     
-    switch (type) {
+    switch (type || '') {
       case 'login': return 'border-l-blue-500 bg-blue-50';
       case 'signup': return 'border-l-purple-500 bg-purple-50';
       case 'withdrawal': return 'border-l-orange-500 bg-orange-50';
@@ -114,12 +62,12 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     }
   };
 
-  const getIconColor = (type: string, isNew: boolean) => {
+  const getIconColor = (type?: string, isNew?: boolean) => {
     if (isNew) {
       return 'bg-green-100 text-green-600';
     }
     
-    switch (type) {
+    switch (type || '') {
       case 'login': return 'bg-blue-100 text-blue-600';
       case 'signup': return 'bg-purple-100 text-purple-600';
       case 'withdrawal': return 'bg-orange-100 text-orange-600';
@@ -128,12 +76,12 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
     }
   };
 
-  const getTextColor = (type: string, isNew: boolean) => {
+  const getTextColor = (type?: string, isNew?: boolean) => {
     if (isNew) {
       return 'text-green-800';
     }
     
-    switch (type) {
+    switch (type || '') {
       case 'login': return 'text-blue-800';
       case 'signup': return 'text-purple-800';
       case 'withdrawal': return 'text-orange-800';
@@ -158,6 +106,12 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
           </button>
         )}
       </div>
+
+      {notificationData.length === 0 && (
+        <div className="p-4 bg-white rounded-lg border border-gray-200 text-sm text-gray-500">
+          No notifications to display.
+        </div>
+      )}
 
       {visibleNotifications.map((notification) => {
         const isExpanded = expandedNotifications.has(notification.id);
@@ -194,25 +148,31 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                 </div>
                 
                 {/* Basic Details */}
-                <div className="text-xs text-gray-600 mt-1 flex items-center">
-                  <User size={12} className="mr-1" />
-                  <span className="font-medium">{notification.memberName}</span>
-                  <span className="mx-2">•</span>
-                  <span>{notification.loginTime}</span>
-                </div>
+                {(notification.memberName || notification.loginTime) && (
+                  <div className="text-xs text-gray-600 mt-1 flex items-center">
+                    <User size={12} className="mr-1" />
+                    <span className="font-medium">{notification.memberName || '—'}</span>
+                    {notification.loginTime && <span className="mx-2">•</span>}
+                    {notification.loginTime && <span>{notification.loginTime}</span>}
+                  </div>
+                )}
 
                 {/* Expanded Details */}
                 {isExpanded && (
                   <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200 space-y-2">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="flex items-center space-x-2">
-                        <Mail size={14} className="text-gray-400" />
-                        <span className="text-sm text-gray-700">{notification.email}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Phone size={14} className="text-gray-400" />
-                        <span className="text-sm text-gray-700">{notification.phone}</span>
-                      </div>
+                      {notification.email && (
+                        <div className="flex items-center space-x-2">
+                          <Mail size={14} className="text-gray-400" />
+                          <span className="text-sm text-gray-700">{notification.email}</span>
+                        </div>
+                      )}
+                      {notification.phone && (
+                        <div className="flex items-center space-x-2">
+                          <Phone size={14} className="text-gray-400" />
+                          <span className="text-sm text-gray-700">{notification.phone}</span>
+                        </div>
+                      )}
                       {notification.location && (
                         <div className="flex items-center space-x-2 md:col-span-2">
                           <MapPin size={14} className="text-gray-400" />
@@ -220,11 +180,15 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                         </div>
                       )}
                     </div>
-                    <div className="pt-2 border-t border-gray-100">
-                      <span className="text-xs text-gray-500">
-                        Member details • Login time: {notification.loginTime} • {notification.time}
-                      </span>
-                    </div>
+                    {(notification.loginTime || notification.time) && (
+                      <div className="pt-2 border-t border-gray-100">
+                        <span className="text-xs text-gray-500">
+                          {notification.loginTime && <>Login time: {notification.loginTime}</>}
+                          {notification.loginTime && notification.time && ' • '}
+                          {notification.time}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

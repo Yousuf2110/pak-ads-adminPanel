@@ -10,6 +10,8 @@ import Leaderboard from './components/Leaderboard';
 import AdsManager from './components/AdsManager';
 import NoticeManager from './components/NoticeManager';
 import BonusManager from './components/BonusManager';
+import DepositsManager from './components/DepositsManager';
+import api from './lib/api';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -17,23 +19,36 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // Check if user is already logged in
-    const authStatus = localStorage.getItem('bsp_admin_auth');
-    if (authStatus === 'true') {
-      setIsAuthenticated(true);
-    }
+    const token = localStorage.getItem('pakads_admin_token') || localStorage.getItem('pakads_token');
+    if (!token) return;
+    (async () => {
+      try {
+        const { data } = await api.get('/auth/me');
+        if (data?.role && String(data.role).toLowerCase() === 'admin') {
+          setIsAuthenticated(true);
+        } else {
+          localStorage.removeItem('pakads_admin_token');
+          localStorage.removeItem('pakads_token');
+          setIsAuthenticated(false);
+        }
+      } catch {
+        localStorage.removeItem('pakads_admin_token');
+        localStorage.removeItem('pakads_token');
+        setIsAuthenticated(false);
+      }
+    })();
   }, []);
 
   const handleLogin = (success: boolean) => {
     if (success) {
       setIsAuthenticated(true);
-      localStorage.setItem('bsp_admin_auth', 'true');
     }
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    localStorage.removeItem('bsp_admin_auth');
+    localStorage.removeItem('pakads_admin_token');
+    localStorage.removeItem('pakads_token');
     setActiveTab('dashboard');
   };
 
@@ -57,6 +72,8 @@ function App() {
         return <NoticeManager />;
       case 'bonus':
         return <BonusManager />;
+      case 'deposits':
+        return <DepositsManager />;
       default:
         return <Dashboard />;
     }

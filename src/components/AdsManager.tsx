@@ -1,48 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, CreditCard as Edit, Trash2, Eye, EyeOff, Monitor, Smartphone, Globe } from 'lucide-react';
+import { listAds, approveAd, rejectAd, createAd, updateAd, deleteAd, type Ad } from '../services/ads';
+import { uploadImage } from '../services/upload';
 
 const AdsManager: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingAd, setEditingAd] = useState<any>(null);
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const ads = [
-    {
-      id: 1,
-      title: 'Special Referral Bonus',
-      description: 'Get $5 for every 3 referrals this month!',
-      imageUrl: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=400',
-      link: '/referral-bonus',
-      status: 'active',
-      placement: 'banner',
-      views: 12450,
-      clicks: 890,
-      createdDate: '2025-01-15'
-    },
-    {
-      id: 2,
-      title: 'New Year Promotion',
-      description: 'Double rewards for all new members joining in January!',
-      imageUrl: 'https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=400',
-      link: '/new-year-promo',
-      status: 'active',
-      placement: 'sidebar',
-      views: 8750,
-      clicks: 420,
-      createdDate: '2025-01-01'
-    },
-    {
-      id: 3,
-      title: 'Level Up Challenge',
-      description: 'Reach level 5 and get exclusive bonuses!',
-      imageUrl: 'https://images.pexels.com/photos/3184360/pexels-photo-3184360.jpeg?auto=compress&cs=tinysrgb&w=400',
-      link: '/level-challenge',
-      status: 'inactive',
-      placement: 'popup',
-      views: 5200,
-      clicks: 180,
-      createdDate: '2025-01-10'
+  const refresh = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await listAds();
+      setAds(data || []);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Failed to load ads');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
 
   const [newAd, setNewAd] = useState({
     title: '',
@@ -51,11 +34,35 @@ const AdsManager: React.FC = () => {
     link: '',
     placement: 'banner'
   });
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  const handleAddAd = () => {
-    console.log('Adding new ad:', newAd);
-    setShowAddModal(false);
-    setNewAd({ title: '', description: '', imageUrl: '', link: '', placement: 'banner' });
+  const handleAddAd = async () => {
+    try {
+      let payload = { ...newAd } as any;
+      if (file) {
+        setUploading(true);
+        try {
+          const res: any = await uploadImage(file);
+          const url = res?.url || res?.data?.url;
+          if (url) {
+            payload.imageUrl = url;
+          }
+        } finally {
+          setUploading(false);
+        }
+      }
+      if (editingAd) {
+        await updateAd(editingAd.id, payload);
+      } else {
+        await createAd(payload);
+      }
+      await refresh();
+      setShowAddModal(false);
+      setEditingAd(null);
+      setNewAd({ title: '', description: '', imageUrl: '', link: '', placement: 'banner' });
+      setFile(null);
+    } catch (e) {}
   };
 
   const handleEditAd = (ad: any) => {
@@ -70,12 +77,22 @@ const AdsManager: React.FC = () => {
     setShowAddModal(true);
   };
 
-  const handleToggleStatus = (id: number) => {
-    console.log('Toggle ad status:', id);
+  const handleToggleStatus = async (id: any, status?: string) => {
+    try {
+      if (status === 'active') {
+        await rejectAd(id);
+      } else {
+        await approveAd(id);
+      }
+      await refresh();
+    } catch (e) {}
   };
 
-  const handleDeleteAd = (id: number) => {
-    console.log('Delete ad:', id);
+  const handleDeleteAd = async (id: any) => {
+    try {
+      await deleteAd(id);
+      await refresh();
+    } catch (e) {}
   };
 
   const getPlacementIcon = (placement: string) => {
@@ -87,8 +104,8 @@ const AdsManager: React.FC = () => {
     }
   };
 
-  const totalViews = ads.reduce((sum, ad) => sum + ad.views, 0);
-  const totalClicks = ads.reduce((sum, ad) => sum + ad.clicks, 0);
+  const totalViews = ads.reduce((sum, ad) => sum + (ad.views || 0), 0);
+  const totalClicks = ads.reduce((sum, ad) => sum + (ad.clicks || 0), 0);
   const activeAds = ads.filter(ad => ad.status === 'active').length;
 
   return (
@@ -159,9 +176,16 @@ const AdsManager: React.FC = () => {
         </div>
       </div>
 
+      {loading && (
+        <div className="p-4 bg-white border rounded-lg">Loading ads...</div>
+      )}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
+      )}
+
       {/* Ads Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {ads.map((ad) => (
+        {ads.map((ad: any) => (
           <div key={ad.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="aspect-w-16 aspect-h-9">
               <img 
@@ -193,7 +217,7 @@ const AdsManager: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-1">
                   <Eye size={16} />
-                  <span>{ad.views.toLocaleString()} views</span>
+                  <span>{ad.views} views</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   <Globe size={16} />
@@ -202,10 +226,10 @@ const AdsManager: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Created: {ad.createdDate}</span>
+                <span className="text-sm text-gray-500">Created: {ad.createdAt || ''}</span>
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => handleToggleStatus(ad.id)}
+                    onClick={() => handleToggleStatus(ad.id, ad.status)}
                     className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-colors ${
                       ad.status === 'active'
                         ? 'text-red-700 bg-red-100 hover:bg-red-200'
@@ -281,6 +305,27 @@ const AdsManager: React.FC = () => {
                   value={newAd.imageUrl}
                   onChange={(e) => setNewAd({ ...newAd, imageUrl: e.target.value })}
                 />
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Or Upload Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    className="w-full"
+                  />
+                  {(file || newAd.imageUrl) && (
+                    <div className="mt-3">
+                      <img
+                        src={file ? URL.createObjectURL(file) : newAd.imageUrl}
+                        alt="Preview"
+                        className="w-full h-40 object-cover rounded border"
+                      />
+                    </div>
+                  )}
+                  {uploading && (
+                    <div className="text-xs text-gray-500 mt-1">Uploading...</div>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -318,6 +363,7 @@ const AdsManager: React.FC = () => {
                   setShowAddModal(false);
                   setEditingAd(null);
                   setNewAd({ title: '', description: '', imageUrl: '', link: '', placement: 'banner' });
+                  setFile(null);
                 }}
                 className="flex-1 px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
               >
@@ -327,7 +373,7 @@ const AdsManager: React.FC = () => {
                 onClick={handleAddAd}
                 className="flex-1 px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
               >
-                {editingAd ? 'Update Ad' : 'Create Ad'}
+                {uploading ? 'Uploading...' : editingAd ? 'Update Ad' : 'Create Ad'}
               </button>
             </div>
           </div>

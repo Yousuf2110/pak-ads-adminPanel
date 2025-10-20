@@ -1,87 +1,84 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Users, UserCheck, CreditCard, DollarSign, TrendingUp, Eye, Activity, Calendar } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
 import RankRewardChart from './RankRewardChart';
+import { getAdminStats } from '../services/dashboard';
+import { getAdminNotifications, type AdminNotification } from '../services/notifications';
+import { getAdminStats as getTransferStats, type TransferStats } from '../services/transfers';
+import { getStats as getWithdrawalStats, type WithdrawalStats } from '../services/adminWithdrawals';
 
 const Dashboard: React.FC = () => {
+  const [statsData, setStatsData] = useState<any | null>(null);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [transferStats, setTransferStats] = useState<TransferStats | null>(null);
+  const [withdrawalStats, setWithdrawalStats] = useState<WithdrawalStats | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    setError('');
+    getAdminStats()
+      .then((d) => setStatsData(d))
+      .catch((e) => setError(e?.response?.data?.message || 'Failed to load stats'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    getAdminNotifications()
+      .then((items) => setNotifications(items || []))
+      .catch(() => setNotifications([]));
+  }, []);
+
+  useEffect(() => {
+    getTransferStats()
+      .then((d) => setTransferStats(d || null))
+      .catch(() => setTransferStats(null));
+    getWithdrawalStats()
+      .then((d) => setWithdrawalStats(d || null))
+      .catch(() => setWithdrawalStats(null));
+  }, []);
+
   const stats = [
     {
       title: 'Total Users',
-      value: '12,847',
+      value: statsData?.totalUsers?.toLocaleString?.() || '—',
       icon: Users,
-      color: 'bg-blue-500',        // icon circle (optional, can keep or darken)
-      bgColor: 'bg-blue-800',      // 👈 DARK CARD BACKGROUND
-      textColor: 'text-white',     // card text white
-      change: '+12%',
-      changeColor: 'text-green-300' // lighter green for dark bg
+      color: 'bg-blue-500',
+      bgColor: 'bg-blue-800',
+      textColor: 'text-white',
+      change: '',
+      changeColor: 'text-green-300'
     },
     {
       title: 'Verified Users',
-      value: '9,234',
+      value: statsData?.verifiedUsers?.toLocaleString?.() || '—',
       icon: UserCheck,
       color: 'bg-green-500',
       bgColor: 'bg-green-800',
       textColor: 'text-white',
-      change: '+8%',
+      change: '',
       changeColor: 'text-green-300'
     },
     {
       title: 'Total Withdrawals',
-      value: '$87,450',
+      value: typeof statsData?.totalWithdrawals === 'number' ? `$${statsData.totalWithdrawals.toLocaleString()}` : '—',
       icon: CreditCard,
       color: 'bg-purple-500',
       bgColor: 'bg-purple-800',
       textColor: 'text-white',
-      change: '+15%',
+      change: '',
       changeColor: 'text-green-300'
     },
     {
       title: 'Total Deposits',
-      value: '$156,890',
+      value: typeof statsData?.totalDeposits === 'number' ? `$${statsData.totalDeposits.toLocaleString()}` : '—',
       icon: DollarSign,
       color: 'bg-orange-500',
       bgColor: 'bg-orange-800',
       textColor: 'text-white',
-      change: '+22%',
+      change: '',
       changeColor: 'text-green-300'
-    }
-  ];
-
-  const recentActivities = [
-    { 
-      user: 'Ahmad Hassan', 
-      action: 'Withdrawal Request', 
-      amount: '$50', 
-      time: '2 mins ago',
-      type: 'withdrawal'
-    },
-    { 
-      user: 'Fatima Khan', 
-      action: 'Account Created', 
-      amount: '-', 
-      time: '5 mins ago',
-      type: 'account'
-    },
-    { 
-      user: 'Muhammad Ali', 
-      action: 'Deposit Made', 
-      amount: '$25', 
-      time: '10 mins ago',
-      type: 'deposit'
-    },
-    { 
-      user: 'Aisha Ahmed', 
-      action: 'Bonus Earned', 
-      amount: '$1', 
-      time: '15 mins ago',
-      type: 'bonus'
-    },
-    { 
-      user: 'Hassan Sheikh', 
-      action: 'Withdrawal Request', 
-      amount: '$75', 
-      time: '20 mins ago',
-      type: 'withdrawal'
     }
   ];
 
@@ -110,7 +107,14 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Notification Panel */}
-      <NotificationPanel maxVisible={3} />
+      <NotificationPanel notifications={notifications} maxVisible={3} />
+
+      {loading && (
+        <div className="p-4 bg-white border rounded-lg">Loading admin stats...</div>
+      )}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
   {stats.map((stat, index) => {
@@ -145,6 +149,35 @@ const Dashboard: React.FC = () => {
   })}
 </div>
 
+      {/* Extra Stats: Transfers & Withdrawals */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Transfers Total</p>
+              <p className="text-2xl font-bold text-gray-900">{transferStats?.total ?? '—'}</p>
+              <p className="text-xs text-gray-500 mt-1">Today: {transferStats?.today ?? '—'}</p>
+            </div>
+            <div className="p-3 rounded-xl bg-blue-100">
+              <DollarSign className="text-blue-600" size={24} />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Withdrawals Pending</p>
+              <p className="text-2xl font-bold text-gray-900">{withdrawalStats?.pending ?? '—'}</p>
+              <p className="text-xs text-gray-500 mt-1">Sent: {withdrawalStats?.sent ?? '—'}</p>
+            </div>
+            <div className="p-3 rounded-xl bg-green-100">
+              <CreditCard className="text-green-600" size={24} />
+            </div>
+          </div>
+        </div>
+      </div>
+
 
       {/* Charts and Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -159,66 +192,28 @@ const Dashboard: React.FC = () => {
               View All
             </button>
           </div>
-          <div className="space-y-4">
-            {recentActivities.map((activity, index) => (
-              <div key={index} className="flex items-center justify-between p-4 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100">
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">{getActivityIcon(activity.type)}</span>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{activity.user}</p>
-                    <p className="text-sm text-gray-600">{activity.action}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900">{activity.amount}</p>
-                  <p className="text-xs text-gray-500">{activity.time}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <div className="space-y-4 text-sm text-gray-500">No recent activity to display.</div>
         </div>
 
-        {/* Quick Stats */}
+        {/* Quick Stats (API-driven only) */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center space-x-2 mb-6">
             <TrendingUp className="text-green-600" size={20} />
             <h3 className="text-lg font-semibold text-gray-900">Quick Overview</h3>
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200">
-              <div>
-                <p className="text-sm text-green-700 font-medium">Active Users Today</p>
-                <p className="text-2xl font-bold text-green-800">3,847</p>
-              </div>
-              <div className="text-green-600">
-                <TrendingUp size={32} />
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-700 font-medium">Pending Requests</p>
+              <p className="text-xl font-bold text-blue-800">{typeof statsData?.pendingRequests === 'number' ? statsData.pendingRequests : '—'}</p>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-700 font-medium">Pending Requests</p>
-                <p className="text-xl font-bold text-blue-800">23</p>
-              </div>
-              <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <p className="text-sm text-purple-700 font-medium">Daily Revenue</p>
-                <p className="text-xl font-bold text-purple-800">$2,430</p>
-              </div>
-            </div>
-
-            <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-orange-700 font-medium mb-2">System Status</p>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium text-gray-700">All Systems Operational</span>
-                  </div>
-                </div>
-                <Calendar className="text-orange-600" size={24} />
-              </div>
+            <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <p className="text-sm text-purple-700 font-medium">Daily Revenue</p>
+              <p className="text-xl font-bold text-purple-800">{typeof statsData?.dailyRevenue === 'number' ? `$${statsData.dailyRevenue.toLocaleString?.()}` : '—'}</p>
             </div>
           </div>
+          {typeof statsData?.pendingRequests !== 'number' && typeof statsData?.dailyRevenue !== 'number' && (
+            <div className="mt-4 text-sm text-gray-500">No quick stats available from API.</div>
+          )}
         </div>
       </div>
 

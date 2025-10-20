@@ -1,66 +1,45 @@
 import React, { useState } from 'react';
 import { Plus, CreditCard as Edit, Trash2, Bell, Phone, Save, X } from 'lucide-react';
+import { listAll as listNotices, create as createNotice, update as updateNotice, remove as removeNotice, type Notice } from '../services/notices';
 
 const NoticeManager: React.FC = () => {
-  const [notices, setNotices] = useState([
-    {
-      id: 1,
-      type: 'phone',
-      title: 'WhatsApp Support',
-      content: '+92 300 1234567',
-      isActive: true,
-      createdDate: '2025-01-15',
-      priority: 'high'
-    },
-    {
-      id: 2,
-      type: 'phone',
-      title: 'Telegram Support',
-      content: '+92 301 2345678',
-      isActive: true,
-      createdDate: '2025-01-15',
-      priority: 'medium'
-    },
-    {
-      id: 3,
-      type: 'general',
-      title: 'System Maintenance',
-      content: 'System will be under maintenance on Jan 25th from 2:00 AM to 4:00 AM.',
-      isActive: true,
-      createdDate: '2025-01-20',
-      priority: 'high'
-    },
-    {
-      id: 4,
-      type: 'general',
-      title: 'New Feature Alert',
-      content: 'We have launched a new referral tracking system. Check it out now!',
-      isActive: true,
-      createdDate: '2025-01-18',
-      priority: 'medium'
-    }
-  ]);
+  const [notices, setNotices] = useState<Notice[]>([]);
 
   const [showModal, setShowModal] = useState(false);
-  const [editingNotice, setEditingNotice] = useState<any>(null);
+  const [editingNotice, setEditingNotice] = useState<Notice | null>(null);
   const [formData, setFormData] = useState({
     type: 'general',
     title: '',
     content: '',
     priority: 'medium'
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleAddNotice = () => {
-    const newNotice = {
-      id: Date.now(),
-      ...formData,
-      isActive: true,
-      createdDate: new Date().toISOString().split('T')[0]
-    };
-    
-    setNotices([newNotice, ...notices]);
-    setShowModal(false);
-    setFormData({ type: 'general', title: '', content: '', priority: 'medium' });
+  const refresh = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await listNotices();
+      setNotices(Array.isArray(data) ? data : []);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Failed to load notices');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    refresh();
+  }, []);
+
+  const handleAddNotice = async () => {
+    try {
+      await createNotice({ ...formData, isActive: true });
+      setShowModal(false);
+      setFormData({ type: 'general', title: '', content: '', priority: 'medium' });
+      await refresh();
+    } catch {}
   };
 
   const handleEditNotice = (notice: any) => {
@@ -74,27 +53,31 @@ const NoticeManager: React.FC = () => {
     setShowModal(true);
   };
 
-  const handleUpdateNotice = () => {
-    setNotices(notices.map(notice => 
-      notice.id === editingNotice.id 
-        ? { ...notice, ...formData }
-        : notice
-    ));
-    setShowModal(false);
-    setEditingNotice(null);
-    setFormData({ type: 'general', title: '', content: '', priority: 'medium' });
+  const handleUpdateNotice = async () => {
+    if (!editingNotice) return;
+    try {
+      await updateNotice(editingNotice.id, formData);
+      setShowModal(false);
+      setEditingNotice(null);
+      setFormData({ type: 'general', title: '', content: '', priority: 'medium' });
+      await refresh();
+    } catch {}
   };
 
-  const handleDeleteNotice = (id: number) => {
-    setNotices(notices.filter(notice => notice.id !== id));
+  const handleDeleteNotice = async (id: any) => {
+    try {
+      await removeNotice(id);
+      await refresh();
+    } catch {}
   };
 
-  const handleToggleActive = (id: number) => {
-    setNotices(notices.map(notice => 
-      notice.id === id 
-        ? { ...notice, isActive: !notice.isActive }
-        : notice
-    ));
+  const handleToggleActive = async (id: any) => {
+    const n = notices.find(n => String(n.id) === String(id));
+    if (!n) return;
+    try {
+      await updateNotice(id, { isActive: !n.isActive });
+      await refresh();
+    } catch {}
   };
 
   const getPriorityColor = (priority: string) => {
@@ -129,6 +112,13 @@ const NoticeManager: React.FC = () => {
           Add New Notice
         </button>
       </div>
+
+      {loading && (
+        <div className="p-4 bg-white border rounded-lg">Loading notices...</div>
+      )}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -230,7 +220,7 @@ const NoticeManager: React.FC = () => {
                   Edit
                 </button>
                 <button
-                  onClick={() => handleDeleteNotice(notice.id)}
+                  onClick={() => handleDeleteNotice(notice.id as any)}
                   className="inline-flex items-center px-2 py-1 text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 transition-colors"
                 >
                   <Trash2 size={12} className="mr-1" />
@@ -241,7 +231,6 @@ const NoticeManager: React.FC = () => {
           </div>
         ))}
       </div>
-
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

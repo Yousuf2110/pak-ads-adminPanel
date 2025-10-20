@@ -1,77 +1,69 @@
-import React, { useState } from 'react';
-import { Send, X, Eye, Search, Filter, DollarSign, Clock, CheckCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Send, X, Eye, Search, Filter, DollarSign, Clock, CheckCircle, Check } from 'lucide-react';
+import { listAll as listAdminWithdrawals, getStats as getAdminWithdrawalStats, approve as approveWithdrawal, reject as rejectWithdrawal, markSent as markWithdrawalSent, type AdminWithdrawal, type WithdrawalStats } from '../services/adminWithdrawals';
 
 const WithdrawalRequests: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [requests, setRequests] = useState<AdminWithdrawal[]>([]);
+  const [stats, setStats] = useState<WithdrawalStats>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const requests = [
-    {
-      id: 1,
-      name: 'Ahmad Hassan',
-      email: 'ahmad.hassan@email.com',
-      phone: '+92 300 1234567',
-      amount: 50,
-      accountDetails: 'Easypaisa: 03001234567',
-      requestDate: '2025-01-21',
-      requestTime: '10:30 AM',
-      status: 'pending'
-    },
-    {
-      id: 2,
-      name: 'Fatima Khan',
-      email: 'fatima.khan@email.com',
-      phone: '+92 301 2345678',
-      amount: 75,
-      accountDetails: 'JazzCash: 03012345678',
-      requestDate: '2025-01-21',
-      requestTime: '02:15 PM',
-      status: 'pending'
-    },
-    {
-      id: 3,
-      name: 'Muhammad Ali',
-      email: 'muhammad.ali@email.com',
-      phone: '+92 302 3456789',
-      amount: 25,
-      accountDetails: 'Bank: 1234567890 (HBL)',
-      requestDate: '2025-01-20',
-      requestTime: '11:45 AM',
-      status: 'sent'
-    },
-    {
-      id: 4,
-      name: 'Aisha Ahmed',
-      email: 'aisha.ahmed@email.com',
-      phone: '+92 303 4567890',
-      amount: 100,
-      accountDetails: 'Easypaisa: 03034567890',
-      requestDate: '2025-01-19',
-      requestTime: '04:20 PM',
-      status: 'rejected'
+  const refresh = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [data, s] = await Promise.all([
+        listAdminWithdrawals().catch(() => []),
+        getAdminWithdrawalStats().catch(() => ({} as WithdrawalStats)),
+      ]);
+      setRequests(Array.isArray(data) ? data : []);
+      setStats(s || {});
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Failed to load withdrawals');
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  const handleSend = (id: number) => {
-    console.log('Send withdrawal:', id);
-    // Add send logic here
   };
 
-  const handleReject = (id: number) => {
-    console.log('Reject withdrawal:', id);
-    // Add rejection logic here
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const handleApprove = async (id: number) => {
+    try {
+      await approveWithdrawal(id);
+      await refresh();
+    } catch {}
   };
 
-  const filteredRequests = requests.filter(request => {
-    const matchesSearch = request.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         request.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || request.status === filterStatus;
+  const handleSend = async (id: number) => {
+    try {
+      await markWithdrawalSent(id);
+      await refresh();
+    } catch {}
+  };
+
+  const handleReject = async (id: number) => {
+    try {
+      await rejectWithdrawal(id);
+      await refresh();
+    } catch {}
+  };
+
+  const filteredRequests = requests.filter((request) => {
+    const matchesSearch = (request.user?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (request.user?.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterStatus === 'all' || (request.status || '') === filterStatus;
     return matchesSearch && matchesFilter;
   });
 
-  const totalPending = requests.filter(r => r.status === 'pending').reduce((sum, r) => sum + r.amount, 0);
-  const totalSent = requests.filter(r => r.status === 'sent').reduce((sum, r) => sum + r.amount, 0);
-  const pendingCount = requests.filter(r => r.status === 'pending').length;
+  const totalPending = (stats?.pending !== undefined)
+    ? requests.filter(r => r.status === 'pending').reduce((sum, r) => sum + (r.amount || 0), 0)
+    : requests.filter(r => r.status === 'pending').reduce((sum, r) => sum + (r.amount || 0), 0);
+  const totalSent = requests.filter(r => r.status === 'sent').reduce((sum, r) => sum + (r.amount || 0), 0);
+  const pendingCount = stats?.pending ?? requests.filter(r => r.status === 'pending').length;
 
   return (
     <div className="space-y-6">
@@ -162,6 +154,13 @@ const WithdrawalRequests: React.FC = () => {
         </div>
       </div>
 
+      {loading && (
+        <div className="p-4 bg-white border rounded-lg">Loading withdrawal requests...</div>
+      )}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
+      )}
+
       {/* Requests Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
@@ -178,32 +177,32 @@ const WithdrawalRequests: React.FC = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRequests.map((request) => (
-                <tr key={request.id} className="hover:bg-gray-50">
+                <tr key={String(request.id)} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
                         <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                           <span className="text-green-800 font-medium text-sm">
-                            {request.name.charAt(0)}
+                            {(request.user?.name || '?').charAt(0)}
                           </span>
                         </div>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{request.name}</div>
-                        <div className="text-sm text-gray-500">{request.email}</div>
-                        <div className="text-sm text-gray-500">{request.phone}</div>
+                        <div className="text-sm font-medium text-gray-900">{request.user?.name}</div>
+                        <div className="text-sm text-gray-500">{request.user?.email}</div>
+                        <div className="text-sm text-gray-500">{request.user?.phone}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-lg font-semibold text-green-600">${request.amount}</span>
+                    <span className="text-lg font-semibold text-green-600">{typeof request.amount === 'number' ? `$${request.amount.toFixed(2)}` : '—'}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div className="max-w-xs truncate">{request.accountDetails}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{request.requestDate}</div>
-                    <div className="text-sm text-gray-500">{request.requestTime}</div>
+                    <div className="text-sm text-gray-900">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}</div>
+                    <div className="text-sm text-gray-500">{request.createdAt ? new Date(request.createdAt).toLocaleTimeString() : ''}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -220,14 +219,21 @@ const WithdrawalRequests: React.FC = () => {
                     {request.status === 'pending' ? (
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => handleSend(request.id)}
+                          onClick={() => handleApprove(Number(request.id))}
+                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        >
+                          <Check size={14} className="mr-1" />
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleSend(Number(request.id))}
                           className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
                         >
                           <Send size={14} className="mr-1" />
                           Send
                         </button>
                         <button
-                          onClick={() => handleReject(request.id)}
+                          onClick={() => handleReject(Number(request.id))}
                           className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
                         >
                           <X size={14} className="mr-1" />

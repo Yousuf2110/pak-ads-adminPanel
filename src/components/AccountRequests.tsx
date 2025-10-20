@@ -1,73 +1,69 @@
 import React, { useState } from 'react';
 import { Check, X, Eye, Search, Filter, UserPlus, Clock } from 'lucide-react';
+import { listPending, listApproved, getStats, approve as approveUser, reject as rejectUser, type ApprovalUser, type ApprovalStats } from '../services/approval';
 
 const AccountRequests: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [requests, setRequests] = useState<ApprovalUser[]>([]);
+  const [stats, setStats] = useState<ApprovalStats>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const requests = [
-    {
-      id: 1,
-      name: 'Ahmad Hassan',
-      email: 'ahmad.hassan@email.com',
-      phone: '+92 300 1234567',
-      cnic: '42101-1234567-8',
-      requestDate: '2025-01-21',
-      requestTime: '10:30 AM',
-      status: 'pending'
-    },
-    {
-      id: 2,
-      name: 'Fatima Khan',
-      email: 'fatima.khan@email.com',
-      phone: '+92 301 2345678',
-      cnic: '42101-2345678-9',
-      requestDate: '2025-01-20',
-      requestTime: '02:15 PM',
-      status: 'pending'
-    },
-    {
-      id: 3,
-      name: 'Muhammad Ali',
-      email: 'muhammad.ali@email.com',
-      phone: '+92 302 3456789',
-      cnic: '42101-3456789-0',
-      requestDate: '2025-01-19',
-      requestTime: '11:45 AM',
-      status: 'approved'
-    },
-    {
-      id: 4,
-      name: 'Aisha Ahmed',
-      email: 'aisha.ahmed@email.com',
-      phone: '+92 303 4567890',
-      cnic: '42101-4567890-1',
-      requestDate: '2025-01-18',
-      requestTime: '04:20 PM',
-      status: 'rejected'
+  const refresh = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [pending, approved, s] = await Promise.all([
+        listPending().catch(() => []),
+        listApproved().catch(() => []),
+        getStats().catch(() => ({} as ApprovalStats)),
+      ]);
+      const normalize = (u: ApprovalUser, statusFallback: string) => ({
+        ...u,
+        status: (u.status as any) || (statusFallback as any),
+      });
+      const combined: ApprovalUser[] = [
+        ...(Array.isArray(pending) ? pending.map((u: any) => normalize(u, 'pending')) : []),
+        ...(Array.isArray(approved) ? approved.map((u: any) => normalize(u, 'approved')) : []),
+      ];
+      setRequests(combined);
+      setStats(s || {});
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Failed to load account requests');
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  const handleApprove = (id: number) => {
-    console.log('Approve request:', id);
-    // Add approval logic here
   };
 
-  const handleReject = (id: number) => {
-    console.log('Reject request:', id);
-    // Add rejection logic here
+  React.useEffect(() => {
+    refresh();
+  }, []);
+
+  const handleApprove = async (id: number) => {
+    try {
+      await approveUser(id);
+      await refresh();
+    } catch {}
+  };
+
+  const handleReject = async (id: number) => {
+    try {
+      await rejectUser(id);
+      await refresh();
+    } catch {}
   };
 
   const filteredRequests = requests.filter(request => {
-    const matchesSearch = request.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         request.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || request.status === filterStatus;
+    const matchesSearch = (request.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (request.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterStatus === 'all' || (request.status as any) === filterStatus;
     return matchesSearch && matchesFilter;
   });
 
-  const pendingCount = requests.filter(r => r.status === 'pending').length;
-  const approvedCount = requests.filter(r => r.status === 'approved').length;
-  const rejectedCount = requests.filter(r => r.status === 'rejected').length;
+  const pendingCount = stats.pending ?? requests.filter(r => r.status === 'pending').length;
+  const approvedCount = stats.approved ?? requests.filter(r => r.status === 'approved').length;
+  const rejectedCount = stats.rejected ?? requests.filter(r => r.status === 'rejected').length;
 
   return (
     <div className="space-y-6">
@@ -147,7 +143,7 @@ const AccountRequests: React.FC = () => {
             <select
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => setFilterStatus(e.target.value as any)}
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
@@ -159,6 +155,12 @@ const AccountRequests: React.FC = () => {
       </div>
 
       {/* Requests Table */}
+      {loading && (
+        <div className="p-4 bg-white border rounded-lg">Loading requests...</div>
+      )}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
+      )}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -174,31 +176,31 @@ const AccountRequests: React.FC = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRequests.map((request) => (
-                <tr key={request.id} className="hover:bg-gray-50">
+                <tr key={String(request.id)} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
                         <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                           <span className="text-green-800 font-medium text-sm">
-                            {request.name.charAt(0)}
+                            {(request.name || request.email || '?').charAt(0)}
                           </span>
                         </div>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{request.name}</div>
+                        <div className="text-sm font-medium text-gray-900">{request.name || request.email || '—'}</div>
                         <div className="text-sm text-gray-500">{request.email}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {request.phone}
+                    {request.phone || '—'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {request.cnic}
+                    {request.cnic || '—'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{request.requestDate}</div>
-                    <div className="text-sm text-gray-500">{request.requestTime}</div>
+                    <div className="text-sm text-gray-900">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}</div>
+                    <div className="text-sm text-gray-500">{request.createdAt ? new Date(request.createdAt).toLocaleTimeString() : ''}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -215,14 +217,14 @@ const AccountRequests: React.FC = () => {
                     {request.status === 'pending' ? (
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => handleApprove(request.id)}
+                          onClick={() => handleApprove(Number(request.id))}
                           className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
                         >
                           <Check size={14} className="mr-1" />
                           Approve
                         </button>
                         <button
-                          onClick={() => handleReject(request.id)}
+                          onClick={() => handleReject(Number(request.id))}
                           className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
                         >
                           <X size={14} className="mr-1" />

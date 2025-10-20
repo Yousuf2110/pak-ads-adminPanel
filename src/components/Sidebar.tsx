@@ -12,7 +12,8 @@ import {
   Menu,
   X,
   LogOut,
-  Shield
+  Shield,
+  DollarSign
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -34,6 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'account-requests', label: 'Account Create Request', icon: UserPlus },
     { id: 'withdrawal-requests', label: 'Withdrawal Request', icon: CreditCard },
+    { id: 'deposits', label: 'Deposits', icon: DollarSign },
     { id: 'manage-users', label: 'Manage Users', icon: Users },
     { id: 'reward-income', label: 'Total Reward Income', icon: Gift },
     { id: 'leaderboard', label: 'Leaderboard (Fortnight Bonus)', icon: Trophy },
