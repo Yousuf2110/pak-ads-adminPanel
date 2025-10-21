@@ -1,7 +1,10 @@
 import axios, { AxiosError } from 'axios';
 
-const rawBase = (import.meta.env.VITE_API_BASE_URL as string) || 'https://pak-ads-be.vercel.app';
-const baseUrl = rawBase.replace(/\/+$/, '');
+// Use relative base by default to leverage Vite proxy in development.
+// In production, set VITE_API_BASE_URL to your backend origin.
+const isDev = import.meta.env.DEV;
+const rawBase = isDev ? '' : ((import.meta.env.VITE_API_BASE_URL as string) || '');
+const baseUrl = (rawBase || '').replace(/\/+$/, '');
 const apiVersion = (import.meta.env.VITE_API_VERSION as string) || 'v1';
 
 export const api = axios.create({

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Star, Trophy, Award, Crown, TrendingUp, Users, DollarSign, Target, BarChart3, PieChart } from 'lucide-react';
+import { getAdminCommissions } from '../services/dashboard';
 
 interface LevelData {
   level: number;
@@ -18,82 +19,61 @@ interface LevelData {
 const RankRewardChart: React.FC = () => {
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
+  const [levelData, setLevelData] = useState<LevelData[]>([]);
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [totalEarnings, setTotalEarnings] = useState(0);
 
-  const levelData: LevelData[] = [
-    {
-      level: 1,
-      name: 'Level 1 - Starter',
-      icon: <Star size={24} />,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100',
-      textColor: 'text-green-800',
-      requiredReferrals: 3,
-      rewardAmount: 1.00,
-      totalMembers: 45,
-      totalEarnings: 45.00,
-      description: '3 Direct Referrals Achievement'
-    },
-    {
-      level: 2,
-      name: 'Level 2 - Bronze',
-      icon: <Trophy size={24} />,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
-      textColor: 'text-blue-800',
-      requiredReferrals: 6,
-      rewardAmount: 2.00,
-      totalMembers: 28,
-      totalEarnings: 56.00,
-      description: '6 Direct Referrals Achievement'
-    },
-    {
-      level: 3,
-      name: 'Level 3 - Silver',
-      icon: <Award size={24} />,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100',
-      textColor: 'text-purple-800',
-      requiredReferrals: 9,
-      rewardAmount: 5.00,
-      totalMembers: 15,
-      totalEarnings: 75.00,
-      description: '9 Direct Referrals Achievement'
-    },
-    {
-      level: 4,
-      name: 'Level 4 - Gold',
-      icon: <Crown size={24} />,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-100',
-      textColor: 'text-orange-800',
-      requiredReferrals: 12,
-      rewardAmount: 10.00,
-      totalMembers: 8,
-      totalEarnings: 80.00,
-      description: '12 Direct Referrals Achievement'
-    },
-    {
-      level: 5,
-      name: 'Level 5 - Diamond',
-      icon: <Crown size={24} />,
-      color: 'text-red-600',
-      bgColor: 'bg-red-100',
-      textColor: 'text-red-800',
-      requiredReferrals: 15,
-      rewardAmount: 20.00,
-      totalMembers: 4,
-      totalEarnings: 80.00,
-      description: '15 Direct Referrals Achievement'
-    }
-  ];
+  useEffect(() => {
+    getAdminCommissions()
+      .then((res: any) => {
+        const distribution: Array<{ level: number; count: number; amount: number; percentage?: number }> = res?.distributionByLevel || [];
 
-  const totalMembers = levelData.reduce((sum, level) => sum + level.totalMembers, 0);
-  const totalEarnings = levelData.reduce((sum, level) => sum + level.totalEarnings, 0);
+        const palette = [
+          { icon: <Star size={24} />, color: 'text-green-600', bg: 'bg-green-100', text: 'text-green-800' },
+          { icon: <Trophy size={24} />, color: 'text-blue-600', bg: 'bg-blue-100', text: 'text-blue-800' },
+          { icon: <Award size={24} />, color: 'text-purple-600', bg: 'bg-purple-100', text: 'text-purple-800' },
+          { icon: <Crown size={24} />, color: 'text-orange-600', bg: 'bg-orange-100', text: 'text-orange-800' },
+          { icon: <Crown size={24} />, color: 'text-red-600', bg: 'bg-red-100', text: 'text-red-800' },
+          { icon: <Crown size={24} />, color: 'text-teal-600', bg: 'bg-teal-100', text: 'text-teal-800' },
+          { icon: <Crown size={24} />, color: 'text-amber-600', bg: 'bg-amber-100', text: 'text-amber-800' },
+        ];
+
+        const list: LevelData[] = distribution.map((d, idx) => {
+          const perMember = d.count > 0 ? d.amount / d.count : 0;
+          const colors = palette[(d.level - 1) % palette.length];
+          return {
+            level: d.level,
+            name: `Level ${d.level}`,
+            icon: colors.icon,
+            color: colors.color,
+            bgColor: colors.bg,
+            textColor: colors.text,
+            requiredReferrals: d.percentage || 0,
+            rewardAmount: perMember,
+            totalMembers: d.count,
+            totalEarnings: d.amount,
+            description: `Commission level ${d.level}`,
+          };
+        });
+
+        setLevelData(list);
+        const members = list.reduce((s, l) => s + l.totalMembers, 0);
+        const earnings = list.reduce((s, l) => s + l.totalEarnings, 0);
+        setTotalMembers(members);
+        setTotalEarnings(earnings);
+      })
+      .catch(() => {
+        setLevelData([]);
+        setTotalMembers(0);
+        setTotalEarnings(0);
+      });
+  }, []);
 
   const getProgressPercentage = (level: number) => {
+    if (!levelData.length) return 0;
     const maxMembers = Math.max(...levelData.map(l => l.totalMembers));
     const currentLevel = levelData.find(l => l.level === level);
-    return currentLevel ? (currentLevel.totalMembers / maxMembers) * 100 : 0;
+    return currentLevel && maxMembers > 0 ? (currentLevel.totalMembers / maxMembers) * 100 : 0;
   };
 
   const getEarningsPercentage = (level: number) => {
@@ -116,8 +96,8 @@ const RankRewardChart: React.FC = () => {
           <button
             onClick={() => setViewMode('chart')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              viewMode === 'chart' 
-                ? 'bg-blue-600 text-white' 
+              viewMode === 'chart'
+                ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -126,8 +106,8 @@ const RankRewardChart: React.FC = () => {
           <button
             onClick={() => setViewMode('table')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              viewMode === 'table' 
-                ? 'bg-blue-600 text-white' 
+              viewMode === 'table'
+                ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -169,7 +149,7 @@ const RankRewardChart: React.FC = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Active Levels</p>
-              <p className="text-2xl font-bold text-gray-900">{levelData.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{levelData.filter(l => l.totalMembers > 0).length}</p>
             </div>
           </div>
         </div>
@@ -181,7 +161,7 @@ const RankRewardChart: React.FC = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Avg. Reward</p>
-              <p className="text-2xl font-bold text-gray-900">${(totalEarnings / totalMembers).toFixed(2)}</p>
+              <p className="text-2xl font-bold text-gray-900">${totalMembers > 0 ? (totalEarnings / totalMembers).toFixed(2) : '0.00'}</p>
             </div>
           </div>
         </div>

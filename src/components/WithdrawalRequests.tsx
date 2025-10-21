@@ -35,21 +35,27 @@ const WithdrawalRequests: React.FC = () => {
     try {
       await approveWithdrawal(id);
       await refresh();
-    } catch {}
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Approve failed');
+    }
   };
 
   const handleSend = async (id: number) => {
     try {
       await markWithdrawalSent(id);
       await refresh();
-    } catch {}
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Mark as sent failed');
+    }
   };
 
   const handleReject = async (id: number) => {
     try {
       await rejectWithdrawal(id);
       await refresh();
-    } catch {}
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Reject failed');
+    }
   };
 
   const filteredRequests = requests.filter((request) => {
@@ -216,7 +222,7 @@ const WithdrawalRequests: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {request.status === 'pending' ? (
+                    {request.status === 'pending' && (
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleApprove(Number(request.id))}
@@ -226,13 +232,6 @@ const WithdrawalRequests: React.FC = () => {
                           Approve
                         </button>
                         <button
-                          onClick={() => handleSend(Number(request.id))}
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-                        >
-                          <Send size={14} className="mr-1" />
-                          Send
-                        </button>
-                        <button
                           onClick={() => handleReject(Number(request.id))}
                           className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
                         >
@@ -240,7 +239,19 @@ const WithdrawalRequests: React.FC = () => {
                           Reject
                         </button>
                       </div>
-                    ) : (
+                    )}
+                    {request.status === 'approved' && (
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleSend(Number(request.id))}
+                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+                        >
+                          <Send size={14} className="mr-1" />
+                          Mark Sent
+                        </button>
+                      </div>
+                    )}
+                    {request.status !== 'pending' && request.status !== 'approved' && (
                       <button className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
                         <Eye size={14} className="mr-1" />
                         View

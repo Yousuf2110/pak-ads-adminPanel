@@ -1,23 +1,22 @@
 import React, { useState } from 'react';
 import { Check, X, Eye, Search, Filter, UserPlus, Clock } from 'lucide-react';
-import { listPending, listApproved, getStats, approve as approveUser, reject as rejectUser, type ApprovalUser, type ApprovalStats } from '../services/approval';
+import { listPending, listApproved, approve as approveUser, reject as rejectUser, type ApprovalUser } from '../services/approval';
 
 const AccountRequests: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [requests, setRequests] = useState<ApprovalUser[]>([]);
-  const [stats, setStats] = useState<ApprovalStats>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
 
   const refresh = async () => {
     setLoading(true);
     setError('');
     try {
-      const [pending, approved, s] = await Promise.all([
+      const [pending, approved] = await Promise.all([
         listPending().catch(() => []),
         listApproved().catch(() => []),
-        getStats().catch(() => ({} as ApprovalStats)),
       ]);
       const normalize = (u: ApprovalUser, statusFallback: string) => ({
         ...u,
@@ -28,7 +27,6 @@ const AccountRequests: React.FC = () => {
         ...(Array.isArray(approved) ? approved.map((u: any) => normalize(u, 'approved')) : []),
       ];
       setRequests(combined);
-      setStats(s || {});
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Failed to load account requests');
     } finally {
@@ -41,17 +39,27 @@ const AccountRequests: React.FC = () => {
   }, []);
 
   const handleApprove = async (id: number) => {
+    setLoading(true);
     try {
       await approveUser(id);
       await refresh();
-    } catch {}
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Approve failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleReject = async (id: number) => {
+    setLoading(true);
     try {
       await rejectUser(id);
       await refresh();
-    } catch {}
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Reject failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredRequests = requests.filter(request => {
@@ -61,9 +69,10 @@ const AccountRequests: React.FC = () => {
     return matchesSearch && matchesFilter;
   });
 
-  const pendingCount = stats.pending ?? requests.filter(r => r.status === 'pending').length;
-  const approvedCount = stats.approved ?? requests.filter(r => r.status === 'approved').length;
-  const rejectedCount = stats.rejected ?? requests.filter(r => r.status === 'rejected').length;
+  // Compute counts from current list so UI updates immediately on actions
+  const pendingCount = requests.filter(r => r.status === 'pending').length;
+  const approvedCount = requests.filter(r => r.status === 'approved').length;
+  const rejectedCount = requests.filter(r => r.status === 'rejected').length;
 
   return (
     <div className="space-y-6">

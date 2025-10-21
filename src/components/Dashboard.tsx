@@ -42,7 +42,7 @@ const Dashboard: React.FC = () => {
   const stats = [
     {
       title: 'Total Users',
-      value: statsData?.totalUsers?.toLocaleString?.() || '—',
+      value: statsData?.overview?.total_users?.toLocaleString?.() || '—',
       icon: Users,
       color: 'bg-blue-500',
       bgColor: 'bg-blue-800',
@@ -51,8 +51,8 @@ const Dashboard: React.FC = () => {
       changeColor: 'text-green-300'
     },
     {
-      title: 'Verified Users',
-      value: statsData?.verifiedUsers?.toLocaleString?.() || '—',
+      title: 'Active Ads',
+      value: statsData?.overview?.active_ads?.toLocaleString?.() || '—',
       icon: UserCheck,
       color: 'bg-green-500',
       bgColor: 'bg-green-800',
@@ -61,8 +61,8 @@ const Dashboard: React.FC = () => {
       changeColor: 'text-green-300'
     },
     {
-      title: 'Total Withdrawals',
-      value: typeof statsData?.totalWithdrawals === 'number' ? `$${statsData.totalWithdrawals.toLocaleString()}` : '—',
+      title: 'Pending Ads',
+      value: statsData?.overview?.pending_ads?.toLocaleString?.() || '—',
       icon: CreditCard,
       color: 'bg-purple-500',
       bgColor: 'bg-purple-800',
@@ -71,8 +71,8 @@ const Dashboard: React.FC = () => {
       changeColor: 'text-green-300'
     },
     {
-      title: 'Total Deposits',
-      value: typeof statsData?.totalDeposits === 'number' ? `$${statsData.totalDeposits.toLocaleString()}` : '—',
+      title: 'Pending Reports',
+      value: statsData?.overview?.pending_reports?.toLocaleString?.() || '—',
       icon: DollarSign,
       color: 'bg-orange-500',
       bgColor: 'bg-orange-800',
