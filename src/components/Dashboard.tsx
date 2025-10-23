@@ -100,10 +100,6 @@ const Dashboard: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600 mt-1">Welcome back! Here's what's happening with BSP Pakistan 🇵🇰</p>
         </div>
-        <div className="flex items-center space-x-2 text-sm text-gray-500 bg-white px-3 py-2 rounded-lg border">
-          <Eye size={16} />
-          <span>Last updated: {new Date().toLocaleString()}</span>
-        </div>
       </div>
 
       {/* Notification Panel */}

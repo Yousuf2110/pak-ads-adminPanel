@@ -53,7 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
+      <div className="lg:hidden fixed top-4 right-4 z-50">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-2 rounded-lg bg-green-600 text-white shadow-lg hover:bg-green-700 transition-colors"
