@@ -4,13 +4,14 @@ export type Ad = {
   id: string | number;
   title?: string;
   description?: string;
-  imageUrl?: string;
+  price?: number;
   link?: string;
   status?: string;
-  placement?: string;
   views?: number;
   clicks?: number;
   createdAt?: string;
+  category_id?: number | string;
+  location_id?: number | string;
 };
 
 export async function listAds() {
@@ -53,12 +54,11 @@ export async function createAd(payload: Partial<Ad>) {
   const body: any = {
     title: payload.title,
     description: payload.description,
+    price: payload.price ?? 0,
     external_url: payload.link,
-    placement: payload.placement,
+    category_id: payload.category_id,
+    location_id: payload.location_id,
   };
-  if (payload.imageUrl) {
-    body.images = [{ image_url: payload.imageUrl }];
-  }
   const { data } = await api.post('/ads', body);
   return (data as any)?.data ?? data;
 }
@@ -67,12 +67,11 @@ export async function updateAd(id: string | number, payload: Partial<Ad>) {
   const body: any = {
     title: payload.title,
     description: payload.description,
+    price: payload.price,
     external_url: payload.link,
-    placement: payload.placement,
+    category_id: payload.category_id,
+    location_id: payload.location_id,
   };
-  if (payload.imageUrl) {
-    body.images = [{ image_url: payload.imageUrl }];
-  }
   const { data } = await api.put(`/ads/${id}`, body);
   return (data as any)?.data ?? data;
 }

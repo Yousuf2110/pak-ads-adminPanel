@@ -1,7 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, CreditCard as Edit, Trash2, Eye, EyeOff, Monitor, Smartphone, Globe } from 'lucide-react';
 import { listAds, approveAd, rejectAd, createAd, updateAd, deleteAd, type Ad } from '../services/ads';
-import { uploadImage } from '../services/upload';
+import { listCategories, type Category } from '../services/categories';
+import { listLocations, type Location } from '../services/locations';
+
+const LoadTaxonomies: React.FC<{ onLoaded: (cats: Category[], locs: Location[]) => void }> = ({ onLoaded }) => {
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    if (done) return;
+    Promise.allSettled([listCategories(), listLocations()])
+      .then(([cats, locs]) => {
+        const c = cats.status === 'fulfilled' ? (cats.value as Category[]) : [];
+        const l = locs.status === 'fulfilled' ? (locs.value as Location[]) : [];
+        if (!cancelled) {
+          onLoaded(c, l);
+          setDone(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [done, onLoaded]);
+  return null;
+};
 
 const AdsManager: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -30,12 +53,13 @@ const AdsManager: React.FC = () => {
   const [newAd, setNewAd] = useState({
     title: '',
     description: '',
-    imageUrl: '',
     link: '',
-    placement: 'banner'
+    price: 0,
+    category_id: '',
+    location_id: '',
   });
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [saving, setSaving] = useState(false);
 
   const handleAddAd = async () => {
@@ -43,26 +67,17 @@ const AdsManager: React.FC = () => {
       setError('');
       setSaving(true);
       let payload = { ...newAd } as any;
-      // If user already provided an image URL, skip upload even if a file is chosen
-      if (file && !payload.imageUrl) {
-        setUploading(true);
-        try {
-          const res: any = await uploadImage(file);
-          const url = res?.imageUrl || res?.url || res?.data?.imageUrl || res?.data?.url;
-          if (url) {
-            payload.imageUrl = url;
-          }
-          if (!payload.imageUrl) {
-            throw new Error('Upload did not return an image URL');
-          }
-        } finally {
-          setUploading(false);
-        }
+      // Basic required-field validation aligned with backend model
+      if (!payload.title || !payload.description) {
+        throw new Error('Title and description are required');
       }
-      // If still no imageUrl, block create and show guidance
-      if (!payload.imageUrl) {
-        throw new Error('Image is required. Upload failed or missing. Paste a public Image URL above or try a smaller file.');
+      if (!payload.category_id || !payload.location_id) {
+        throw new Error('Category and Location are required');
       }
+      if (payload.price == null || isNaN(Number(payload.price))) {
+        throw new Error('Price is required');
+      }
+      // Image is optional and not sent in payload per backend contract
       if (editingAd) {
         await updateAd(editingAd.id, payload);
       } else {
@@ -71,8 +86,7 @@ const AdsManager: React.FC = () => {
       await refresh();
       setShowAddModal(false);
       setEditingAd(null);
-      setNewAd({ title: '', description: '', imageUrl: '', link: '', placement: 'banner' });
-      setFile(null);
+      setNewAd({ title: '', description: '', link: '', price: 0, category_id: '', location_id: '' });
     } catch (e: any) {
       const status = e?.response?.status;
       const msg = e?.response?.data?.message || e?.message || 'Failed to save ad';
@@ -87,9 +101,10 @@ const AdsManager: React.FC = () => {
     setNewAd({
       title: ad.title,
       description: ad.description,
-      imageUrl: ad.imageUrl,
       link: ad.link,
-      placement: ad.placement
+      price: ad.price || 0,
+      category_id: ad.category_id || '',
+      location_id: ad.location_id || '',
     });
     setShowAddModal(true);
   };
@@ -285,6 +300,10 @@ const AdsManager: React.FC = () => {
             </div>
             
             <div className="p-6 space-y-4">
+              {/* Load taxonomy on modal open */}
+              {!categories.length || !locations.length ? (
+                <LoadTaxonomies onLoaded={(cats, locs) => { setCategories(cats); setLocations(locs); }} />
+              ) : null}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Ad Title
@@ -313,40 +332,6 @@ const AdsManager: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Image URL
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter image URL"
-                  value={newAd.imageUrl}
-                  onChange={(e) => setNewAd({ ...newAd, imageUrl: e.target.value })}
-                />
-                <div className="mt-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Or Upload Image</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                    className="w-full"
-                  />
-                  {(file || newAd.imageUrl) && (
-                    <div className="mt-3">
-                      <img
-                        src={file ? URL.createObjectURL(file) : newAd.imageUrl}
-                        alt="Preview"
-                        className="w-full h-40 object-cover rounded border"
-                      />
-                    </div>
-                  )}
-                  {uploading && (
-                    <div className="text-xs text-gray-500 mt-1">Uploading...</div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Link
                 </label>
                 <input
@@ -359,19 +344,44 @@ const AdsManager: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Placement
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Price (PKR)</label>
+                <input
+                  type="number"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="0"
+                  value={newAd.price}
+                  onChange={(e) => setNewAd({ ...newAd, price: Number(e.target.value) })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                 <select
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  value={newAd.placement}
-                  onChange={(e) => setNewAd({ ...newAd, placement: e.target.value })}
+                  value={newAd.category_id}
+                  onChange={(e) => setNewAd({ ...newAd, category_id: e.target.value })}
                 >
-                  <option value="banner">Banner</option>
-                  <option value="sidebar">Sidebar</option>
-                  <option value="popup">Popup</option>
+                  <option value="">Select category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
                 </select>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={newAd.location_id}
+                  onChange={(e) => setNewAd({ ...newAd, location_id: e.target.value })}
+                >
+                  <option value="">Select location</option>
+                  {locations.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              </div>
+
             </div>
 
             <div className="p-6 border-t border-gray-200 flex space-x-3">
@@ -379,8 +389,7 @@ const AdsManager: React.FC = () => {
                 onClick={() => {
                   setShowAddModal(false);
                   setEditingAd(null);
-                  setNewAd({ title: '', description: '', imageUrl: '', link: '', placement: 'banner' });
-                  setFile(null);
+                  setNewAd({ title: '', description: '', link: '', price: 0, category_id: '', location_id: '' });
                 }}
                 className="flex-1 px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
               >
@@ -390,7 +399,7 @@ const AdsManager: React.FC = () => {
                 onClick={handleAddAd}
                 className="flex-1 px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
               >
-                {uploading ? 'Uploading...' : saving ? (editingAd ? 'Updating...' : 'Creating...') : (editingAd ? 'Update Ad' : 'Create Ad')}
+                {saving ? (editingAd ? 'Updating...' : 'Creating...') : (editingAd ? 'Update Ad' : 'Create Ad')}
               </button>
             </div>
           </div>
