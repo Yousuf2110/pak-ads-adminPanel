@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Gift, DollarSign, Users, Calendar, Search, Filter, Star, Trophy, Award, Crown } from 'lucide-react';
-import { getOverallStats } from '../services/commissions';
+import { getOverallStats, getTopEarners } from '../services/commissions';
 
 const RewardIncome: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -9,15 +9,42 @@ const RewardIncome: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [overall, setOverall] = useState<any | null>(null);
+  const [top, setTop] = useState<any[]>([]);
 
   useEffect(() => {
-    setLoading(true);
-    setError('');
-    getOverallStats()
-      .then((d) => setOverall(d))
-      .catch((e) => setError(e?.response?.data?.message || 'Failed to load reward stats'))
-      .finally(() => setLoading(false));
-  }, []);
+    const refresh = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const now = new Date();
+        let startDate: string | undefined;
+        let endDate: string | undefined;
+        if (dateFilter === 'today') {
+          const s = new Date();
+          s.setHours(0, 0, 0, 0);
+          startDate = s.toISOString();
+          endDate = now.toISOString();
+        } else if (dateFilter === 'week') {
+          const s = new Date();
+          s.setDate(s.getDate() - 7);
+          startDate = s.toISOString();
+          endDate = now.toISOString();
+        }
+        const [o, t] = await Promise.all([
+          getOverallStats(startDate || endDate ? { startDate, endDate } : undefined).catch(() => null),
+          getTopEarners(startDate || endDate ? { startDate, endDate } : undefined).catch(() => []),
+        ]);
+        setOverall(o);
+        const list = Array.isArray((t as any)?.topEarners) ? (t as any).topEarners : (Array.isArray(t) ? t : []);
+        setTop(list);
+      } catch (e: any) {
+        setError(e?.response?.data?.message || 'Failed to load reward stats');
+      } finally {
+        setLoading(false);
+      }
+    };
+    refresh();
+  }, [dateFilter]);
 
   // Helper functions for level display
   const getLevelIcon = (levelNumber: number) => {
@@ -43,32 +70,32 @@ const RewardIncome: React.FC = () => {
   };
 
   // Derived KPI values (fall back safely if backend fields differ)
-  const totalRewardsSent = typeof overall?.totalRewardsSent === 'number' ? overall.totalRewardsSent : 0;
-  const totalRewardsPending = typeof overall?.totalRewardsPending === 'number' ? overall.totalRewardsPending : 0;
-  const uniqueRecipients = typeof overall?.rewardRecipients === 'number' ? overall.rewardRecipients : 0;
-  const rewardsToday = typeof overall?.rewardsToday === 'number' ? overall.rewardsToday : 0;
+  const totalDistributed = typeof overall?.totalCommissionDistributed === 'number' ? overall.totalCommissionDistributed : 0;
+  const totalCommissions = typeof overall?.totalCommissions === 'number' ? overall.totalCommissions : 0;
+  const usersWithReferrals = typeof overall?.usersWithReferrals === 'number' ? overall.usersWithReferrals : 0;
+  const rewardsToday = 0;
 
   const stats = [
     {
-      title: 'Total Rewards Sent',
-      value: `$${totalRewardsSent.toFixed(2)}`,
+      title: 'Total Distributed',
+      value: `$${totalDistributed.toFixed(2)}`,
       icon: DollarSign,
       color: 'bg-green-500',
-      change: '+$125 today'
+      change: ''
     },
     {
-      title: 'Pending Rewards',
-      value: `$${totalRewardsPending.toFixed(2)}`,
+      title: 'Total Commissions',
+      value: totalCommissions,
       icon: Gift,
       color: 'bg-orange-500',
-      change: '2 pending'
+      change: ''
     },
     {
-      title: 'Reward Recipients',
-      value: uniqueRecipients,
+      title: 'Users With Referrals',
+      value: usersWithReferrals,
       icon: Users,
       color: 'bg-blue-500',
-      change: '+3 this week'
+      change: ''
     },
     {
       title: 'Rewards Today',
@@ -144,16 +171,68 @@ const RewardIncome: React.FC = () => {
         <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">{error}</div>
       )}
 
-      {/* Rewards Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Reward History</h3>
-          <p className="text-sm text-gray-600">Complete list of all rewards sent to users</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Distribution by Level</h3>
+            <p className="text-sm text-gray-600">Total commissions distributed per level</p>
+          </div>
+          <div className="p-6">
+            <div className="space-y-3">
+              {(overall?.distributionByLevel || []).map((lvl: any) => (
+                <div key={String(lvl.level)} className={`flex items-center justify-between px-3 py-2 rounded border ${getLevelColor(lvl.level)}`}>
+                  <div className="flex items-center space-x-2">
+                    {getLevelIcon(lvl.level)}
+                    <span className="text-sm font-medium">Level {lvl.level}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold mr-3">${typeof lvl.amount === 'number' ? lvl.amount.toFixed(2) : '0.00'}</span>
+                    <span className="text-gray-600 mr-3">Count: {lvl.count ?? 0}</span>
+                    <span className="text-gray-600">{typeof lvl.percentage === 'number' ? `${lvl.percentage}%` : ''}</span>
+                  </div>
+                </div>
+              ))}
+              {(!overall?.distributionByLevel || (overall?.distributionByLevel || []).length === 0) && (
+                <div className="text-sm text-gray-500">No distribution data available.</div>
+              )}
+            </div>
+          </div>
         </div>
-        
-        <div className="p-6 text-sm text-gray-500">No reward history endpoint provided yet. Once available, I will wire it here.</div>
 
-        
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Top Earners</h3>
+            <p className="text-sm text-gray-600">Users with the highest referral commissions</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Earned</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commissions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {top.map((row: any, idx: number) => (
+                  <tr key={String(row.userId || idx)} className="hover:bg-gray-50">
+                    <td className="px-6 py-3 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{row.name || row.email || `#${row.userId}`}</div>
+                      <div className="text-sm text-gray-500">{row.email}</div>
+                    </td>
+                    <td className="px-6 py-3 whitespace-nowrap text-sm font-semibold text-green-600">${typeof row.totalEarned === 'number' ? row.totalEarned.toFixed(2) : '0.00'}</td>
+                    <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{row.commissionCount ?? ''}</td>
+                  </tr>
+                ))}
+                {top.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-6 py-6 text-sm text-gray-500">No top earners to display.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );

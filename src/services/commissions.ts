@@ -10,13 +10,13 @@ export type TopEarner = {
   bonus?: number;
 };
 
-export async function getOverallStats() {
-  const { data } = await api.get('/commissions/admin/overall-stats');
+export async function getOverallStats(params?: { startDate?: string; endDate?: string }) {
+  const { data } = await api.get('/commissions/admin/overall-stats', { params });
   return (data as any)?.data ?? data;
 }
 
-export async function getTopEarners() {
-  const { data } = await api.get<TopEarner[]>('/commissions/admin/top-earners');
+export async function getTopEarners(params?: { startDate?: string; endDate?: string; limit?: number }) {
+  const { data } = await api.get<TopEarner[]>('/commissions/admin/top-earners', { params });
   return (data as any)?.data ?? data;
 }
 

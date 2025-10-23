@@ -14,13 +14,38 @@ export type User = {
 };
 
 export async function listUsers() {
-  const { data } = await api.get<User[]>('/users');
-  return (data as any)?.data ?? data;
+  const { data } = await api.get('/users');
+  const payload: any = (data as any)?.data ?? data;
+  const list: any[] = Array.isArray(payload) ? payload : (Array.isArray(payload?.rows) ? payload.rows : payload);
+  return (list as any[]).map((u) => ({
+    id: String(u.id),
+    name: u.name,
+    email: u.email,
+    phone: u.phone,
+    status: u.is_active === true ? 'active' : 'inactive',
+    verified: u.is_email_verified === true,
+    balance: typeof u.wallet_balance === 'number' ? u.wallet_balance : (u.wallet_balance ? parseFloat(u.wallet_balance) : undefined),
+    referralsCount: typeof u.total_referrals === 'number' ? u.total_referrals : undefined,
+    totalEarned: typeof u.total_earnings === 'number' ? u.total_earnings : (typeof u.earnings_total === 'number' ? u.earnings_total : undefined),
+    createdAt: u.created_at || u.createdAt,
+  })) as User[];
 }
 
 export async function getUser(id: string) {
-  const { data } = await api.get<User>(`/users/${id}`);
-  return (data as any)?.data ?? data;
+  const { data } = await api.get(`/users/${id}`);
+  const u: any = (data as any)?.data ?? data;
+  return {
+    id: String(u.id),
+    name: u.name,
+    email: u.email,
+    phone: u.phone,
+    status: u.is_active === true ? 'active' : 'inactive',
+    verified: u.is_email_verified === true,
+    balance: typeof u.wallet_balance === 'number' ? u.wallet_balance : (u.wallet_balance ? parseFloat(u.wallet_balance) : undefined),
+    referralsCount: typeof u.total_referrals === 'number' ? u.total_referrals : undefined,
+    totalEarned: typeof u.total_earnings === 'number' ? u.total_earnings : (typeof u.earnings_total === 'number' ? u.earnings_total : undefined),
+    createdAt: u.created_at || u.createdAt,
+  } as User;
 }
 
 export async function updateUser(id: string, payload: Partial<User>) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Star, Trophy, Users, DollarSign, Calendar, Filter, Search, Award } from 'lucide-react';
-import { getOverallStats } from '../services/commissions';
+import { getDailyStatus, getDailyHistory, checkAndAward } from '../services/dailyBonus';
 
 const BonusManager: React.FC = () => {
   const [dateFilter, setDateFilter] = useState('today');
@@ -8,21 +8,36 @@ const BonusManager: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [overall, setOverall] = useState<any | null>(null);
+  const [status, setStatus] = useState<any | null>(null);
+  const [history, setHistory] = useState<any | null>(null);
+  const [awarding, setAwarding] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    setError('');
-    getOverallStats()
-      .then((d) => setOverall(d))
-      .catch((e) => setError(e?.response?.data?.message || 'Failed to load bonus stats'))
-      .finally(() => setLoading(false));
+    const refresh = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const [s, h] = await Promise.all([
+          getDailyStatus().catch(() => null),
+          getDailyHistory({ page: 1, limit: 20 }).catch(() => null),
+        ]);
+        setStatus(s);
+        setHistory(h);
+      } catch (e: any) {
+        setError(e?.response?.data?.message || 'Failed to load bonus data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    refresh();
   }, []);
 
-  // KPIs from overall stats (fallback to 0 if not provided)
-  const totalBonusToday = typeof overall?.dailyBonusTotal === 'number' ? overall.dailyBonusTotal : 0;
-  const level1Count = typeof overall?.dailyLevel1Count === 'number' ? overall.dailyLevel1Count : 0;
-  const level2Count = typeof overall?.dailyLevel2Count === 'number' ? overall.dailyLevel2Count : 0;
+  // KPIs from daily status (fallbacks)
+  const todayReferrals = typeof status?.todayReferrals === 'number' ? status.todayReferrals : 0;
+  const bonusAwarded = status?.bonusAwarded === true;
+  const bonusAwardedCount = typeof status?.bonusAwardedCount === 'number' ? status.bonusAwardedCount : 0;
+  const potentialCount = typeof status?.potentialBonus?.count === 'number' ? status.potentialBonus.count : 0;
+  const totalBonusTodayPKR = typeof status?.bonusAwardedAmount?.pkr === 'number' ? status.bonusAwardedAmount.pkr : 0;
 
   const getBonusTypeColor = (bonusType: string) => {
     if (bonusType.includes('3 Direct')) return 'bg-green-100 text-green-800 border-green-200';
@@ -54,8 +69,8 @@ const BonusManager: React.FC = () => {
               <DollarSign className="text-green-600" size={24} />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Today's Bonuses</p>
-              <p className="text-2xl font-bold text-gray-900">${totalBonusToday.toFixed(2)}</p>
+              <p className="text-sm font-medium text-gray-600">Today's Bonus (PKR)</p>
+              <p className="text-2xl font-bold text-gray-900">{totalBonusTodayPKR.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -66,8 +81,8 @@ const BonusManager: React.FC = () => {
               <Users className="text-blue-600" size={24} />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Achievers Today</p>
-              <p className="text-2xl font-bold text-gray-900">{level1Count + level2Count}</p>
+              <p className="text-sm font-medium text-gray-600">Today's Referrals</p>
+              <p className="text-2xl font-bold text-gray-900">{todayReferrals}</p>
             </div>
           </div>
         </div>
@@ -78,8 +93,8 @@ const BonusManager: React.FC = () => {
               <Star className="text-green-600" size={24} />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Level 1 Bonuses</p>
-              <p className="text-2xl font-bold text-gray-900">{level1Count}</p>
+              <p className="text-sm font-medium text-gray-600">Potential Bonuses Today</p>
+              <p className="text-2xl font-bold text-gray-900">{potentialCount}</p>
             </div>
           </div>
         </div>
@@ -90,10 +105,45 @@ const BonusManager: React.FC = () => {
               <Trophy className="text-blue-600" size={24} />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Level 2 Bonuses</p>
-              <p className="text-2xl font-bold text-gray-900">{level2Count}</p>
+              <p className="text-sm font-medium text-gray-600">Bonuses Awarded Today</p>
+              <p className="text-2xl font-bold text-gray-900">{bonusAwarded ? bonusAwardedCount : 0}</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Daily Bonus</h3>
+            <p className="text-sm text-gray-600">Check and award today's referral bonus based on today's referrals.</p>
+          </div>
+          <button
+            disabled={awarding}
+            onClick={async () => {
+              try {
+                setError('');
+                setAwarding(true);
+                await checkAndAward();
+                const [s, h] = await Promise.all([
+                  getDailyStatus().catch(() => null),
+                  getDailyHistory({ page: 1, limit: 20 }).catch(() => null),
+                ]);
+                setStatus(s);
+                setHistory(h);
+              } catch (e: any) {
+                const status = e?.response?.status;
+                const msg = e?.response?.data?.message || e?.message || 'Failed to award bonus';
+                setError(status ? `${msg} (HTTP ${status})` : msg);
+              } finally {
+                setAwarding(false);
+              }
+            }}
+            className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white ${awarding ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'} transition-colors`}
+          >
+            {awarding ? 'Processing...' : (bonusAwarded ? 'Recheck Bonus' : 'Award Today\'s Bonus')}
+          </button>
         </div>
       </div>
 
@@ -168,7 +218,37 @@ const BonusManager: React.FC = () => {
           <h3 className="text-lg font-semibold text-gray-900">Daily Bonus Achievements</h3>
           <p className="text-sm text-gray-600">Users who achieved referral milestones and earned bonuses</p>
         </div>
-        <div className="p-6 text-sm text-gray-500">No daily achievements endpoint provided yet. Once available, I will wire it here.</div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referrals</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bonuses</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (PKR)</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {(history?.bonuses || history?.data?.bonuses || []).filter((item: any) => {
+                if (!searchTerm) return true;
+                const dateStr = (item.bonusDate || item.createdAt || '').toString();
+                return dateStr.toLowerCase().includes(searchTerm.toLowerCase());
+              }).map((item: any, idx: number) => (
+                <tr key={idx} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">{new Date(item.bonusDate || item.createdAt).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{item.referralsCount}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{item.bonusCount}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{(item.bonusAmount?.pkr ?? 0).toLocaleString()}</td>
+                </tr>
+              ))}
+              {(!history || (history?.bonuses?.length === 0 && history?.data?.bonuses?.length === 0)) && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-6 text-center text-sm text-gray-500">No bonus history found</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

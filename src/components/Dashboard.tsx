@@ -92,6 +92,11 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const quickPendingRequests = typeof statsData?.overview?.pending_reports === 'number'
+    ? statsData.overview.pending_reports
+    : (typeof statsData?.pendingRequests === 'number' ? statsData.pendingRequests : undefined);
+  const quickDailyRevenue = typeof statsData?.dailyRevenue === 'number' ? statsData.dailyRevenue : undefined;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -113,37 +118,37 @@ const Dashboard: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-  {stats.map((stat, index) => {
-    const Icon = stat.icon;
-    return (
-      <div
-        key={index}
-        className={`${stat.bgColor} rounded-xl shadow-sm border border-gray-700 p-6 hover:shadow-lg transition-all duration-200`}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <p className={`text-sm font-medium ${stat.textColor} opacity-90 mb-1`}>
-              {stat.title}
-            </p>
-            <p className={`text-2xl font-bold ${stat.textColor}`}>{stat.value}</p>
-            <div className="flex items-center mt-2">
-              <span className={`text-sm font-medium ${stat.changeColor}`}>
-                {stat.change}
-              </span>
-              <span className={`text-sm ${stat.textColor} opacity-70 ml-1`}>
-                from last month
-              </span>
+        {stats.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <div
+              key={index}
+              className={`${stat.bgColor} rounded-xl shadow-sm border border-gray-700 p-6 hover:shadow-lg transition-all duration-200`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className={`text-sm font-medium ${stat.textColor} opacity-90 mb-1`}>
+                    {stat.title}
+                  </p>
+                  <p className={`text-2xl font-bold ${stat.textColor}`}>{stat.value}</p>
+                  <div className="flex items-center mt-2">
+                    <span className={`text-sm font-medium ${stat.changeColor}`}>
+                      {stat.change}
+                    </span>
+                    <span className={`text-sm ${stat.textColor} opacity-70 ml-1`}>
+                      from last month
+                    </span>
+                  </div>
+                </div>
+                {/* Icon container: solid color with WHITE icon */}
+                <div className={`${stat.color} p-3 rounded-xl`}>
+                  <Icon className="text-white" size={24} />
+                </div>
+              </div>
             </div>
-          </div>
-          {/* Icon container: solid color with WHITE icon */}
-          <div className={`${stat.color} p-3 rounded-xl`}>
-            <Icon className="text-white" size={24} />
-          </div>
-        </div>
+          );
+        })}
       </div>
-    );
-  })}
-</div>
 
       {/* Extra Stats: Transfers & Withdrawals */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -163,9 +168,9 @@ const Dashboard: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Withdrawals Pending</p>
-              <p className="text-2xl font-bold text-gray-900">{withdrawalStats?.pending ?? '—'}</p>
-              <p className="text-xs text-gray-500 mt-1">Sent: {withdrawalStats?.sent ?? '—'}</p>
+              <p className="text-sm font-medium text-gray-600">Total Withdrawn</p>
+              <p className="text-2xl font-bold text-gray-900">{typeof withdrawalStats?.totalAmount === 'number' ? withdrawalStats.totalAmount : '—'}</p>
+              <p className="text-xs text-gray-500 mt-1">Requests: {withdrawalStats?.totalWithdrawals ?? '—'}</p>
             </div>
             <div className="p-3 rounded-xl bg-green-100">
               <CreditCard className="text-green-600" size={24} />
@@ -173,7 +178,6 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
-
 
       {/* Charts and Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -188,7 +192,20 @@ const Dashboard: React.FC = () => {
               View All
             </button>
           </div>
-          <div className="space-y-4 text-sm text-gray-500">No recent activity to display.</div>
+          <div className="space-y-4 text-sm text-gray-700">
+            {(notifications || []).slice(0, 6).map((n) => (
+              <div key={String(n.id)} className="flex items-start justify-between">
+                <div className="flex items-center space-x-2">
+                  <span>{getActivityIcon(n.type || '')}</span>
+                  <span>{n.message}</span>
+                </div>
+                <span className="text-xs text-gray-500">{n.time || ''}</span>
+              </div>
+            ))}
+            {(!notifications || notifications.length === 0) && (
+              <div className="text-sm text-gray-500">No recent activity to display.</div>
+            )}
+          </div>
         </div>
 
         {/* Quick Stats (API-driven only) */}
@@ -197,18 +214,19 @@ const Dashboard: React.FC = () => {
             <TrendingUp className="text-green-600" size={20} />
             <h3 className="text-lg font-semibold text-gray-900">Quick Overview</h3>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-700 font-medium">Pending Requests</p>
-              <p className="text-xl font-bold text-blue-800">{typeof statsData?.pendingRequests === 'number' ? statsData.pendingRequests : '—'}</p>
+          {(typeof quickPendingRequests === 'number' || typeof quickDailyRevenue === 'number') ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-700 font-medium">Pending Requests</p>
+                <p className="text-xl font-bold text-blue-800">{typeof quickPendingRequests === 'number' ? quickPendingRequests : '—'}</p>
+              </div>
+              <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <p className="text-sm text-purple-700 font-medium">Daily Revenue</p>
+                <p className="text-xl font-bold text-purple-800">{typeof quickDailyRevenue === 'number' ? `$${quickDailyRevenue.toLocaleString?.()}` : '—'}</p>
+              </div>
             </div>
-            <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
-              <p className="text-sm text-purple-700 font-medium">Daily Revenue</p>
-              <p className="text-xl font-bold text-purple-800">{typeof statsData?.dailyRevenue === 'number' ? `$${statsData.dailyRevenue.toLocaleString?.()}` : '—'}</p>
-            </div>
-          </div>
-          {typeof statsData?.pendingRequests !== 'number' && typeof statsData?.dailyRevenue !== 'number' && (
-            <div className="mt-4 text-sm text-gray-500">No quick stats available from API.</div>
+          ) : (
+            <div className="mt-2 text-sm text-gray-500">No quick stats available from API.</div>
           )}
         </div>
       </div>

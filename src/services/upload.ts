@@ -8,7 +8,7 @@ export type UploadResponse = {
 export async function uploadImage(file: File) {
   const form = new FormData();
   form.append('image', file);
-  const { data } = await api.post<UploadResponse>('/upload/image', form, {
+  const { data } = await api.post<UploadResponse>('/upload', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return (data as any)?.data ?? data;

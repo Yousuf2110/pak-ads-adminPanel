@@ -36,21 +36,32 @@ const AdsManager: React.FC = () => {
   });
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleAddAd = async () => {
     try {
+      setError('');
+      setSaving(true);
       let payload = { ...newAd } as any;
-      if (file) {
+      // If user already provided an image URL, skip upload even if a file is chosen
+      if (file && !payload.imageUrl) {
         setUploading(true);
         try {
           const res: any = await uploadImage(file);
-          const url = res?.url || res?.data?.url;
+          const url = res?.imageUrl || res?.url || res?.data?.imageUrl || res?.data?.url;
           if (url) {
             payload.imageUrl = url;
+          }
+          if (!payload.imageUrl) {
+            throw new Error('Upload did not return an image URL');
           }
         } finally {
           setUploading(false);
         }
+      }
+      // If still no imageUrl, block create and show guidance
+      if (!payload.imageUrl) {
+        throw new Error('Image is required. Upload failed or missing. Paste a public Image URL above or try a smaller file.');
       }
       if (editingAd) {
         await updateAd(editingAd.id, payload);
@@ -62,7 +73,13 @@ const AdsManager: React.FC = () => {
       setEditingAd(null);
       setNewAd({ title: '', description: '', imageUrl: '', link: '', placement: 'banner' });
       setFile(null);
-    } catch (e) {}
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.message || e?.message || 'Failed to save ad';
+      setError(status ? `${msg} (HTTP ${status})` : msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEditAd = (ad: any) => {
@@ -373,7 +390,7 @@ const AdsManager: React.FC = () => {
                 onClick={handleAddAd}
                 className="flex-1 px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
               >
-                {uploading ? 'Uploading...' : editingAd ? 'Update Ad' : 'Create Ad'}
+                {uploading ? 'Uploading...' : saving ? (editingAd ? 'Updating...' : 'Creating...') : (editingAd ? 'Update Ad' : 'Create Ad')}
               </button>
             </div>
           </div>

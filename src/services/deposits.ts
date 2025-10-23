@@ -9,31 +9,45 @@ export type Deposit = {
   createdAt?: string;
 };
 
+export type DepositStats = {
+  totalDeposits?: number;
+  totalAmount?: number;
+  totalAmountUSD?: number;
+  byStatus?: {
+    pending?: { count?: number; amount?: number; amountUSD?: number };
+    approved?: { count?: number; amount?: number; amountUSD?: number };
+    rejected?: { count?: number; amount?: number; amountUSD?: number };
+  };
+};
+
 export async function listAll() {
-  // Admin list endpoint
-  const { data } = await api.get('/deposits/admin/list');
+  const { data } = await api.get('/deposits');
   const payload = (data as any)?.data ?? data;
-  const list = Array.isArray(payload) ? payload : Array.isArray(payload?.deposits) ? payload.deposits : [];
-  return (list as any[]).map((d) => ({
-    id: d.id,
-    user: d.user,
-    amount: typeof d.amount === 'number' ? d.amount : undefined,
-    status: d.status,
-    proofUrl: d.proofImageUrl || d.proof_url || d.proofImageURL,
-    createdAt: d.createdAt || d.created_at,
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.deposits)
+    ? payload.deposits
+    : [];
+  return (list as any[]).map((item) => ({
+    id: item.id,
+    user: item.user,
+    amount: typeof item.amountUSD === 'number' ? item.amountUSD : (typeof item.amount === 'number' ? item.amount : undefined),
+    status: item.status,
+    proofUrl: item.proofImageUrl || item.proof_url || item.proofImageURL,
+    createdAt: item.createdAt || item.created_at,
   })) as Deposit[];
 }
 
 export async function getOne(id: string | number) {
-  const { data } = await api.get(`/deposits/admin/${id}`);
-  const d = (data as any)?.data ?? data;
+  const { data } = await api.get(`/deposits/${id}`);
+  const detail = (data as any)?.data ?? data;
   return {
-    id: d?.id,
-    user: d?.user,
-    amount: d?.amount,
-    status: d?.status,
-    proofUrl: d?.proofImageUrl,
-    createdAt: d?.createdAt,
+    id: detail?.id,
+    user: detail?.user,
+    amount: typeof detail?.amountUSD === 'number' ? detail?.amountUSD : detail?.amount,
+    status: detail?.status,
+    proofUrl: detail?.proofImageUrl,
+    createdAt: detail?.createdAt,
   } as Deposit;
 }
 
@@ -46,3 +60,9 @@ export async function reject(id: string | number) {
   const { data } = await api.put(`/deposits/${id}/reject`, { reason: 'Rejected by admin' });
   return (data as any)?.data ?? data;
 }
+
+export async function getStats() {
+  const { data } = await api.get<DepositStats>('/deposits/admin/stats');
+  return (data as any)?.data ?? data;
+}
+

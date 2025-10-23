@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Search, Filter, Eye, Check, X, Image as ImageIcon, DollarSign } from 'lucide-react';
-import { listAll as listDeposits, getOne as getDeposit, approve as approveDeposit, reject as rejectDeposit, type Deposit } from '../services/deposits';
+import { listAll as listDeposits, getOne as getDeposit, approve as approveDeposit, reject as rejectDeposit, getStats as getDepositStats, type Deposit, type DepositStats } from '../services/deposits';
 
 const DepositsManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -10,13 +10,18 @@ const DepositsManager: React.FC = () => {
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState<string | number | null>(null);
   const [selected, setSelected] = useState<Deposit | null>(null);
+  const [stats, setStats] = useState<DepositStats | null>(null);
 
   const refresh = async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await listDeposits();
-      setDeposits(Array.isArray(data) ? data : []);
+      const [list, s] = await Promise.all([
+        listDeposits().catch(() => []),
+        getDepositStats().catch(() => null),
+      ]);
+      setDeposits(Array.isArray(list) ? list : []);
+      setStats(s);
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Failed to load deposits');
     } finally {
@@ -59,13 +64,14 @@ const DepositsManager: React.FC = () => {
     return matchesSearch && matchesFilter;
   });
 
-  const pendingCount = deposits.filter(d => d.status === 'pending').length;
+  const pendingCount = (stats?.byStatus?.pending?.count as number | undefined) ?? deposits.filter(d => d.status === 'pending').length;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Deposits</h1>
         <p className="text-gray-600 mt-1">Review deposit proofs and approve or reject</p>
+        <p className="text-xs text-gray-500 mt-1">Showing deposits for the current account. Admin-wide listing is not available from the backend.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -76,7 +82,7 @@ const DepositsManager: React.FC = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Deposits</p>
-              <p className="text-2xl font-bold text-gray-900">{deposits.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{typeof stats?.totalDeposits === 'number' ? stats.totalDeposits : deposits.length}</p>
             </div>
           </div>
         </div>
@@ -141,8 +147,10 @@ const DepositsManager: React.FC = () => {
               {filtered.map((d) => (
                 <tr key={String(d.id)} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{d.user?.name || d.user?.email || '—'}</div>
-                    <div className="text-sm text-gray-500">{d.user?.email}</div>
+                    <div className="text-sm font-medium text-gray-900">{d.user?.name || d.user?.email || `#${String(d.id)}`}</div>
+                    {d.user?.email && (
+                      <div className="text-sm text-gray-500">{d.user.email}</div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-lg font-semibold text-green-600">{typeof d.amount === 'number' ? `$${d.amount.toFixed(2)}` : '—'}</span>

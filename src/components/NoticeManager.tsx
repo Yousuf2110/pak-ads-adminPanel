@@ -15,6 +15,7 @@ const NoticeManager: React.FC = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const refresh = async () => {
     setLoading(true);
@@ -35,11 +36,23 @@ const NoticeManager: React.FC = () => {
 
   const handleAddNotice = async () => {
     try {
+      setError('');
+      if (!formData.title || !formData.content) {
+        setError('Title and content are required');
+        return;
+      }
+      setSaving(true);
       await createNotice({ ...formData, isActive: true });
       setShowModal(false);
       setFormData({ type: 'general', title: '', content: '', priority: 'medium' });
       await refresh();
-    } catch {}
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.message || e?.message || 'Failed to add notice';
+      setError(status ? `${msg} (HTTP ${status})` : msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEditNotice = (notice: any) => {
@@ -56,12 +69,24 @@ const NoticeManager: React.FC = () => {
   const handleUpdateNotice = async () => {
     if (!editingNotice) return;
     try {
+      setError('');
+      if (!formData.title || !formData.content) {
+        setError('Title and content are required');
+        return;
+      }
+      setSaving(true);
       await updateNotice(editingNotice.id, formData);
       setShowModal(false);
       setEditingNotice(null);
       setFormData({ type: 'general', title: '', content: '', priority: 'medium' });
       await refresh();
-    } catch {}
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.message || e?.message || 'Failed to update notice';
+      setError(status ? `${msg} (HTTP ${status})` : msg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDeleteNotice = async (id: any) => {

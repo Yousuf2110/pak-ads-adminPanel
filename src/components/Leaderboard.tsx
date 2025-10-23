@@ -1,21 +1,52 @@
 import React, { useEffect, useState } from 'react';
 import { Trophy, Crown, Star, Medal, Gift, Calendar } from 'lucide-react';
-import { getTopEarners, type TopEarner } from '../services/commissions';
+import { getTopEarners } from '../services/commissions';
 
 const Leaderboard: React.FC = () => {
   const [currentPeriod, setCurrentPeriod] = useState('current');
-  const [leaders, setLeaders] = useState<TopEarner[]>([]);
+  const [leaders, setLeaders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    setLoading(true);
-    setError('');
-    getTopEarners()
-      .then((d) => setLeaders(d || []))
-      .catch((e) => setError(e?.response?.data?.message || 'Failed to load leaderboard'))
-      .finally(() => setLoading(false));
-  }, []);
+    const getFortnightRange = () => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const day = now.getDate();
+      const firstHalf = day <= 15;
+      const start = new Date(year, month, firstHalf ? 1 : 16, 0, 0, 0, 0);
+      const end = new Date(year, month, firstHalf ? 15 : new Date(year, month + 1, 0).getDate(), 23, 59, 59, 999);
+      return { start, end };
+    };
+
+    const refresh = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const { start, end } = getFortnightRange();
+        const res: any = await getTopEarners({ startDate: start.toISOString(), endDate: end.toISOString(), limit: 10 });
+        const raw = Array.isArray(res?.topEarners) ? res.topEarners : (Array.isArray(res) ? res : []);
+        const mapped = raw.map((r: any, idx: number) => ({
+          rank: idx + 1,
+          name: r.name,
+          email: r.email,
+          phone: r.phone,
+          points: r.commissionCount ?? r.points ?? 0,
+          referrals: r.totalReferrals ?? r.referrals ?? 0,
+          bonus: r.totalEarned ?? r.bonus ?? 0,
+          userId: r.userId,
+        }));
+        setLeaders(mapped);
+      } catch (e: any) {
+        setError(e?.response?.data?.message || 'Failed to load leaderboard');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    refresh();
+  }, [currentPeriod]);
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Crown className="text-yellow-500" size={24} />;
@@ -53,11 +84,31 @@ const Leaderboard: React.FC = () => {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Period:</span>
-                <span className="text-sm font-medium text-gray-900">Jan 1 - Jan 15, 2025</span>
+                <span className="text-sm font-medium text-gray-900">{
+                  (() => {
+                    const now = new Date();
+                    const y = now.getFullYear();
+                    const m = now.getMonth();
+                    const d = now.getDate();
+                    const start = new Date(y, m, d <= 15 ? 1 : 16);
+                    const end = new Date(y, m, d <= 15 ? 15 : new Date(y, m + 1, 0).getDate());
+                    return `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+                  })()
+                }</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Days Left:</span>
-                <span className="text-sm font-medium text-red-600">5 days</span>
+                <span className="text-sm font-medium text-red-600">{
+                  (() => {
+                    const now = new Date();
+                    const y = now.getFullYear();
+                    const m = now.getMonth();
+                    const d = now.getDate();
+                    const end = new Date(y, m, d <= 15 ? 15 : new Date(y, m + 1, 0).getDate());
+                    const diff = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+                    return `${diff} days`;
+                  })()
+                }</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Status:</span>
