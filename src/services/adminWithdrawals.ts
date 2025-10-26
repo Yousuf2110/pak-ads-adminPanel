@@ -45,7 +45,7 @@ export async function getStats() {
 }
 
 export async function approve(id: string | number) {
-  const { data } = await api.put(`/admin/withdrawals/${id}/approve`);
+  const { data } = await api.put(`/admin/withdrawals/${id}/approve`, { adminNotes: 'Approved by admin' });
   return (data as any)?.data ?? data;
 }
 
@@ -56,7 +56,7 @@ export async function reject(id: string | number) {
 }
 
 export async function markSent(id: string | number) {
-  const { data } = await api.put(`/admin/withdrawals/${id}/sent`);
+  const { data } = await api.put(`/admin/withdrawals/${id}/sent`, { adminNotes: 'Sent by admin' });
   return (data as any)?.data ?? data;
 }
 

@@ -52,13 +52,54 @@ export async function getOne(id: string | number) {
 }
 
 export async function approve(id: string | number) {
-  const { data } = await api.put(`/deposits/${id}/approve`);
-  return (data as any)?.data ?? data;
+  // Try a few common backend patterns for approval
+  const attempts: Array<() => Promise<any>> = [
+    () => api.put(`/deposits/${id}/approve`),
+    () => api.put(`/deposits/${id}/approve`, { approved: true }),
+    () => api.put(`/deposits/${id}/approve`, { action: 'approve' }),
+    () => api.post(`/deposits/${id}/approve`),
+    () => api.post(`/deposits/${id}/approve`, { approved: true }),
+    () => api.post(`/deposits/${id}/approve`, { action: 'approve' }),
+    () => api.put(`/admin/deposits/${id}/approve`),
+    () => api.put(`/admin/deposits/${id}/approve`, { approved: true }),
+    () => api.put(`/admin/deposits/${id}/approve`, { action: 'approve' }),
+    () => api.post(`/admin/deposits/${id}/approve`),
+    () => api.post(`/admin/deposits/${id}/approve`, { approved: true }),
+    () => api.post(`/admin/deposits/${id}/approve`, { action: 'approve' }),
+    () => api.put(`/deposits/${id}/status`, { status: 'approved' }),
+    () => api.put(`/admin/deposits/${id}/status`, { status: 'approved' }),
+  ];
+  let lastErr: any = null;
+  for (const fn of attempts) {
+    try {
+      const { data } = await fn();
+      return (data as any)?.data ?? data;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
 }
 
 export async function reject(id: string | number) {
-  const { data } = await api.put(`/deposits/${id}/reject`, { reason: 'Rejected by admin' });
-  return (data as any)?.data ?? data;
+  const attempts: Array<() => Promise<any>> = [
+    () => api.put(`/deposits/${id}/reject`, { reason: 'Rejected by admin' }),
+    () => api.post(`/deposits/${id}/reject`, { reason: 'Rejected by admin' }),
+    () => api.put(`/admin/deposits/${id}/reject`, { reason: 'Rejected by admin' }),
+    () => api.post(`/admin/deposits/${id}/reject`, { reason: 'Rejected by admin' }),
+    () => api.put(`/deposits/${id}/status`, { status: 'rejected', reason: 'Rejected by admin' }),
+    () => api.put(`/admin/deposits/${id}/status`, { status: 'rejected', reason: 'Rejected by admin' }),
+  ];
+  let lastErr: any = null;
+  for (const fn of attempts) {
+    try {
+      const { data } = await fn();
+      return (data as any)?.data ?? data;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
 }
 
 export async function getStats() {

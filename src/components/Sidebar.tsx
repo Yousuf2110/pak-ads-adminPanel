@@ -33,7 +33,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'account-requests', label: 'Account Create Request', icon: UserPlus },
+    // { id: 'account-requests', label: 'Account Create Request', icon: UserPlus },
     { id: 'withdrawal-requests', label: 'Withdrawal Request', icon: CreditCard },
     { id: 'deposits', label: 'Deposits', icon: DollarSign },
     { id: 'manage-users', label: 'Manage Users', icon: Users },
