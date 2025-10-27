@@ -11,6 +11,8 @@ const DepositsManager: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | number | null>(null);
   const [selected, setSelected] = useState<Deposit | null>(null);
   const [stats, setStats] = useState<DepositStats | null>(null);
+  const [approvingId, setApprovingId] = useState<string | number | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | number | null>(null);
 
   const refresh = async () => {
     setLoading(true);
@@ -42,19 +44,31 @@ const DepositsManager: React.FC = () => {
   };
 
   const handleApprove = async (id: string | number) => {
+    setError('');
+    setApprovingId(id);
     try {
       await approveDeposit(id);
       await refresh();
       if (selectedId === id) await openDetails(id);
-    } catch {}
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Approve failed');
+    } finally {
+      setApprovingId(null);
+    }
   };
 
   const handleReject = async (id: string | number) => {
+    setError('');
+    setRejectingId(id);
     try {
       await rejectDeposit(id);
       await refresh();
       if (selectedId === id) await openDetails(id);
-    } catch {}
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Reject failed');
+    } finally {
+      setRejectingId(null);
+    }
   };
 
   const filtered = deposits.filter((d) => {
@@ -177,17 +191,19 @@ const DepositsManager: React.FC = () => {
                       <div className="flex space-x-2">
                         <button
                           onClick={() => handleApprove(d.id)}
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                          disabled={approvingId === d.id}
+                          className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white ${approvingId === d.id ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
                         >
                           <Check size={14} className="mr-1" />
-                          Approve
+                          {approvingId === d.id ? 'Approving...' : 'Approve'}
                         </button>
                         <button
                           onClick={() => handleReject(d.id)}
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+                          disabled={rejectingId === d.id}
+                          className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white ${rejectingId === d.id ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}
                         >
                           <X size={14} className="mr-1" />
-                          Reject
+                          {rejectingId === d.id ? 'Rejecting...' : 'Reject'}
                         </button>
                       </div>
                     ) : (
