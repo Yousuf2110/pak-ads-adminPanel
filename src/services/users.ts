@@ -13,11 +13,21 @@ export type User = {
   createdAt?: string;
 };
 
-export async function listUsers() {
-  const { data } = await api.get('/users');
+export async function listUsers(params?: { page?: number; limit?: number; search?: string }) {
+  const query = new URLSearchParams();
+  if (params?.page) query.set('page', String(params.page));
+  if (params?.limit) query.set('limit', String(params.limit));
+  if (params?.search) query.set('search', params.search);
+  const qs = query.toString();
+  const { data } = await api.get(`/users${qs ? `?${qs}` : ''}`);
   const payload: any = (data as any)?.data ?? data;
-  const list: any[] = Array.isArray(payload) ? payload : (Array.isArray(payload?.rows) ? payload.rows : payload);
-  return (list as any[]).map((u) => ({
+  const meta = {
+    page: (data as any)?.page ?? (payload?.page ?? params?.page ?? 1),
+    pages: (data as any)?.pages ?? (payload?.pages ?? 1),
+    total: (data as any)?.total ?? (payload?.total ?? (Array.isArray(payload) ? payload.length : 0)),
+  };
+  const list: any[] = Array.isArray(payload) ? payload : (Array.isArray(payload?.rows) ? payload.rows : (Array.isArray(payload?.data) ? payload.data : []));
+  const users = (list as any[]).map((u) => ({
     id: String(u.id),
     name: u.name,
     email: u.email,
@@ -29,6 +39,7 @@ export async function listUsers() {
     totalEarned: typeof u.total_earnings === 'number' ? u.total_earnings : (typeof u.earnings_total === 'number' ? u.earnings_total : undefined),
     createdAt: u.created_at || u.createdAt,
   })) as User[];
+  return { users, ...meta };
 }
 
 export async function getUser(id: string) {

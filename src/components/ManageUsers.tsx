@@ -8,13 +8,19 @@ const ManageUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 10;
 
   const refresh = async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await listUsers();
-      setUsers(data || []);
+      const res = await listUsers({ page, limit: pageSize, search: searchTerm || undefined });
+      setUsers(res?.users || []);
+      setPages(res?.pages || 1);
+      setTotal(res?.total || (res?.users?.length || 0));
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Failed to load users');
     } finally {
@@ -24,7 +30,8 @@ const ManageUsers: React.FC = () => {
 
   useEffect(() => {
     refresh();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch = (user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -40,7 +47,7 @@ const ManageUsers: React.FC = () => {
   const stats = [
     {
       title: 'All Users',
-      value: users.length,
+      value: total,
       icon: Users,
       color: 'bg-blue-500'
     },
@@ -122,6 +129,12 @@ const ManageUsers: React.FC = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <button
+              onClick={() => { setPage(1); refresh(); }}
+              className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+            >
+              Search
+            </button>
           </div>
         </div>
       </div>
@@ -224,6 +237,27 @@ const ManageUsers: React.FC = () => {
             <p className="text-gray-500">No users found matching your criteria.</p>
           </div>
         )}
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between mt-4">
+        <div className="text-sm text-gray-600">Total: {total} • Page {page} of {pages}</div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="px-3 py-2 rounded border disabled:opacity-50"
+          >
+            Prev
+          </button>
+          <button
+            onClick={() => setPage((p) => Math.min(pages, p + 1))}
+            disabled={page >= pages}
+            className="px-3 py-2 rounded border disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );
