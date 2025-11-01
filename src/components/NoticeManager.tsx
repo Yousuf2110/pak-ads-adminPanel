@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, CreditCard as Edit, Trash2, Bell, Phone, Save, X } from 'lucide-react';
+import { Plus, CreditCard as Edit, Trash2, Bell, Save, X } from 'lucide-react';
 import { listAll as listNotices, create as createNotice, update as updateNotice, remove as removeNotice, type Notice } from '../services/notices';
 
 const NoticeManager: React.FC = () => {
@@ -11,7 +11,7 @@ const NoticeManager: React.FC = () => {
     type: 'general',
     title: '',
     content: '',
-    priority: 'medium'
+    priority: 'high'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -44,7 +44,7 @@ const NoticeManager: React.FC = () => {
       setSaving(true);
       await createNotice({ ...formData, isActive: true });
       setShowModal(false);
-      setFormData({ type: 'general', title: '', content: '', priority: 'medium' });
+      setFormData({ type: 'general', title: '', content: '', priority: 'high' });
       await refresh();
     } catch (e: any) {
       const status = e?.response?.status;
@@ -58,10 +58,11 @@ const NoticeManager: React.FC = () => {
   const handleEditNotice = (notice: any) => {
     setEditingNotice(notice);
     setFormData({
-      type: notice.type,
+      type: 'general',
       title: notice.title,
       content: notice.content,
-      priority: notice.priority
+      // Map backend values to allowed set: normal->low, urgent->high
+      priority: notice.priority === 'normal' ? 'low' : (notice.priority === 'urgent' ? 'high' : notice.priority)
     });
     setShowModal(true);
   };
@@ -78,7 +79,7 @@ const NoticeManager: React.FC = () => {
       await updateNotice(editingNotice.id, formData);
       setShowModal(false);
       setEditingNotice(null);
-      setFormData({ type: 'general', title: '', content: '', priority: 'medium' });
+      setFormData({ type: 'general', title: '', content: '', priority: 'high' });
       await refresh();
     } catch (e: any) {
       const status = e?.response?.status;
@@ -106,20 +107,18 @@ const NoticeManager: React.FC = () => {
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
+    const p = priority === 'normal' ? 'low' : (priority === 'urgent' ? 'high' : priority);
+    switch (p) {
       case 'high': return 'bg-red-100 text-red-800 border-red-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'low': return 'bg-green-100 text-green-800 border-green-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
-  const getTypeIcon = (type: string) => {
-    return type === 'phone' ? <Phone size={20} /> : <Bell size={20} />;
-  };
+  const getTypeIcon = () => <Bell size={20} />;
 
   const activeNotices = notices.filter(n => n.isActive).length;
-  const phoneNumbers = notices.filter(n => n.type === 'phone' && n.isActive).length;
+  const phoneNumbers = 0;
 
   return (
     <div className="space-y-6">
@@ -173,12 +172,12 @@ const NoticeManager: React.FC = () => {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center">
-            <div className="p-3 rounded-full bg-purple-100">
-              <Phone className="text-purple-600" size={24} />
+            <div className="p-3 rounded-full bg-purple-100 hidden">
+              {/* phone stats removed */}
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Contact Numbers</p>
-              <p className="text-2xl font-bold text-gray-900">{phoneNumbers}</p>
+              <p className="text-2xl font-bold text-gray-900">0</p>
             </div>
           </div>
         </div>
@@ -192,10 +191,8 @@ const NoticeManager: React.FC = () => {
           }`}>
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-lg ${
-                  notice.type === 'phone' ? 'bg-purple-100' : 'bg-blue-100'
-                }`}>
-                  {getTypeIcon(notice.type)}
+                <div className={`p-2 rounded-lg bg-blue-100`}>
+                  {getTypeIcon()}
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{notice.title}</h3>
@@ -220,18 +217,9 @@ const NoticeManager: React.FC = () => {
             </div>
 
             <div className="mb-4">
-              {notice.type === 'phone' ? (
-                <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
-                  <Phone className="text-green-600" size={18} />
-                  <span className="text-lg font-mono font-semibold text-gray-900">
-                    {notice.content}
-                  </span>
-                </div>
-              ) : (
-                <p className="text-gray-700 text-sm leading-relaxed">
-                  {notice.content}
-                </p>
-              )}
+              <p className="text-gray-700 text-sm leading-relaxed">
+                {notice.content}
+              </p>
             </div>
 
             <div className="flex items-center justify-between text-sm text-gray-500">
@@ -271,14 +259,11 @@ const NoticeManager: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Notice Type
                 </label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                >
-                  <option value="general">General Notice</option>
-                  <option value="phone">Contact Number</option>
-                </select>
+                <input
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                  value="General Notice"
+                  readOnly
+                />
               </div>
 
               <div>
@@ -296,25 +281,15 @@ const NoticeManager: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {formData.type === 'phone' ? 'Phone Number' : 'Content'}
+                  Content
                 </label>
-                {formData.type === 'phone' ? (
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="+92 300 1234567"
-                    value={formData.content}
-                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  />
-                ) : (
-                  <textarea
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    rows={4}
-                    placeholder="Enter notice content"
-                    value={formData.content}
-                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  />
-                )}
+                <textarea
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  rows={4}
+                  placeholder="Enter notice content"
+                  value={formData.content}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                />
               </div>
 
               <div>
@@ -327,7 +302,6 @@ const NoticeManager: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
                 >
                   <option value="low">Low</option>
-                  <option value="medium">Medium</option>
                   <option value="high">High</option>
                 </select>
               </div>
@@ -338,7 +312,7 @@ const NoticeManager: React.FC = () => {
                 onClick={() => {
                   setShowModal(false);
                   setEditingNotice(null);
-                  setFormData({ type: 'general', title: '', content: '', priority: 'medium' });
+                  setFormData({ type: 'general', title: '', content: '', priority: 'high' });
                 }}
                 className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
               >

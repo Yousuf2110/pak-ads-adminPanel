@@ -115,12 +115,9 @@ export async function approve(id: string | number) {
   const envApprove = (import.meta as any).env?.VITE_ADMIN_DEPOSIT_APPROVE as string | undefined;
   const expand = (tpl?: string) => (tpl ? tpl.replace(/:id/g, String(id)) : undefined);
   const envUrl = expand(envApprove);
-  const base = lastListBasePath ? lastListBasePath.replace(/\/?deposits$/, '/deposits') : null;
   const attempts: Array<() => Promise<any>> = [
     // Exact backend route
     () => api.put(`/deposits/${id}/approve`),
-    // Same-namespace as list (if list used a prefixed path)
-    ...(base ? [() => api.put(`${base}/${id}/approve`)] : []),
     // Env override (if provided)
     ...(envUrl ? [() => api.put(envUrl), () => api.post(envUrl)] : []),
   ];
@@ -140,12 +137,9 @@ export async function reject(id: string | number) {
   const envReject = (import.meta as any).env?.VITE_ADMIN_DEPOSIT_REJECT as string | undefined;
   const expand = (tpl?: string) => (tpl ? tpl.replace(/:id/g, String(id)) : undefined);
   const envUrl = expand(envReject);
-  const base = lastListBasePath ? lastListBasePath.replace(/\/?deposits$/, '/deposits') : null;
   const attempts: Array<() => Promise<any>> = [
     // Exact backend route
     () => api.put(`/deposits/${id}/reject`, { reason: 'Rejected by admin' }),
-    // Same-namespace as list
-    ...(base ? [() => api.put(`${base}/${id}/reject`, { reason: 'Rejected by admin' })] : []),
     // Env override
     ...(envUrl ? [() => api.put(envUrl, { reason: 'Rejected by admin' }), () => api.post(envUrl, { reason: 'Rejected by admin' })] : []),
   ];
