@@ -12,13 +12,17 @@ const ManageUsers: React.FC = () => {
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
   const pageSize = 10;
+  const PKR_PER_USD = 283;
 
   const refresh = async () => {
     setLoading(true);
     setError('');
     try {
       const res = await listUsers({ page, limit: pageSize, search: searchTerm || undefined });
-      setUsers(res?.users || []);
+      const sorted = Array.isArray(res?.users)
+        ? [...res.users].sort((a: any, b: any) => (Number(b.balance || 0) - Number(a.balance || 0)))
+        : [];
+      setUsers(sorted);
       setPages(res?.pages || 1);
       setTotal(res?.total || (res?.users?.length || 0));
     } catch (e: any) {
@@ -187,7 +191,7 @@ const ManageUsers: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-lg font-semibold text-green-600">
-                      {typeof user.balance === 'number' ? `$${user.balance.toFixed(2)}` : '—'}
+                      {typeof user.balance === 'number' ? `$${(user.balance / PKR_PER_USD).toFixed(2)}` : '—'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
