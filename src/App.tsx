@@ -11,7 +11,7 @@ import AdsManager from './components/AdsManager';
 import NoticeManager from './components/NoticeManager';
 import BonusManager from './components/BonusManager';
 import DepositsManager from './components/DepositsManager';
-import api from './lib/api';
+import { me as apiMe } from './services/auth';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -23,7 +23,7 @@ function App() {
     if (!token) return;
     (async () => {
       try {
-        const { data } = await api.get('/auth/me');
+        const data = await apiMe();
         if (data?.role && String(data.role).toLowerCase() === 'admin') {
           setIsAuthenticated(true);
         } else {

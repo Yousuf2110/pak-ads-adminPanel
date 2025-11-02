@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Search, Filter, Eye, Check, X, Image as ImageIcon, DollarSign } from 'lucide-react';
-import { listAll as listDeposits, getOne as getDeposit, approve as approveDeposit, reject as rejectDeposit, getStats as getDepositStats, type Deposit, type DepositStats } from '../services/deposits';
+import { listPaginated as listDepositsPaginated, getOne as getDeposit, approve as approveDeposit, reject as rejectDeposit, getStats as getDepositStats, type Deposit, type DepositStats } from '../services/deposits';
 
 const DepositsManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -13,17 +13,33 @@ const DepositsManager: React.FC = () => {
   const [stats, setStats] = useState<DepositStats | null>(null);
   const [approvingId, setApprovingId] = useState<string | number | null>(null);
   const [rejectingId, setRejectingId] = useState<string | number | null>(null);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 10;
 
   const refresh = async () => {
     setLoading(true);
     setError('');
     try {
-      const [list, s] = await Promise.all([
-        listDeposits().catch(() => []),
-        getDepositStats().catch(() => null),
-      ]);
-      setDeposits(Array.isArray(list) ? list : []);
-      setStats(s);
+      // Load all pages from server (batch fetch), then paginate client-side at 10/page
+      const first = await listDepositsPaginated(1, 100).catch(() => ({ items: [], page: 1, pages: 1, total: 0 }));
+      let allItems: Deposit[] = Array.isArray(first.items) ? first.items : [];
+      const totalPagesFromServer = Number(first.pages) || 1;
+      if (totalPagesFromServer > 1) {
+        for (let p = 2; p <= totalPagesFromServer; p++) {
+          const next = await listDepositsPaginated(p, 100).catch(() => ({ items: [] }));
+          if (Array.isArray(next.items) && next.items.length > 0) {
+            allItems = allItems.concat(next.items as any);
+          }
+        }
+      }
+      const s = await getDepositStats().catch(() => null);
+      setDeposits(allItems);
+      const totalCount = allItems.length;
+      setTotal(totalCount);
+      setPages(Math.max(1, Math.ceil(totalCount / pageSize)));
+      setStats(s as any);
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Failed to load deposits');
     } finally {
@@ -77,6 +93,15 @@ const DepositsManager: React.FC = () => {
     const matchesFilter = filterStatus === 'all' || (d.status as any) === filterStatus;
     return matchesSearch && matchesFilter;
   });
+  const safePage = Math.min(Math.max(page, 1), pages);
+  const start = (safePage - 1) * pageSize;
+  const end = start + pageSize;
+  const pageItems = filtered.slice(start, end);
+
+  useEffect(() => {
+    // Reset to first page when filters change
+    setPage(1);
+  }, [searchTerm, filterStatus]);
 
   const pendingCount = (stats?.byStatus?.pending?.count as number | undefined) ?? deposits.filter(d => d.status === 'pending').length;
 
@@ -158,7 +183,7 @@ const DepositsManager: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filtered.map((d) => (
+              {pageItems.map((d) => (
                 <tr key={String(d.id)} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{d.user?.name || d.user?.email || `#${String(d.id)}`}</div>
@@ -216,12 +241,44 @@ const DepositsManager: React.FC = () => {
           </table>
         </div>
 
-        {filtered.length === 0 && (
+        {pageItems.length === 0 && (
           <div className="text-center py-12">
             <ImageIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <p className="text-gray-500">No deposits found matching your criteria.</p>
           </div>
         )}
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between mt-4">
+        <div className="text-sm text-gray-600">Page {safePage} of {pages} • Total {total}</div>
+        <div className="flex items-center gap-2">
+          <button
+            className={`px-3 py-1.5 rounded border ${safePage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50'}`}
+            disabled={safePage === 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Previous
+          </button>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: pages }).map((_, i) => (
+              <button
+                key={i}
+                className={`min-w-[36px] px-2 py-1.5 rounded border text-sm ${safePage === i + 1 ? 'bg-green-600 text-white border-green-600' : 'bg-white hover:bg-gray-50'}`}
+                onClick={() => setPage(i + 1)}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+          <button
+            className={`px-3 py-1.5 rounded border ${safePage === pages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white hover:bg-gray-50'}`}
+            disabled={safePage === pages}
+            onClick={() => setPage((p) => Math.min(pages, p + 1))}
+          >
+            Next
+          </button>
+        </div>
       </div>
 
       {/* Details Modal */}

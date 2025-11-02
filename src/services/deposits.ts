@@ -24,33 +24,34 @@ export type DepositStats = {
 
 export async function listAll() {
   const endpoints = [
-    // pak-ads-be backend: admin-wide list
     '/deposits/admin/all',
-    // fallbacks/other namespaces
     '/admin/deposits',
     '/deposits',
     '/wallet/deposits',
     '/payments/deposits',
     '/transactions/deposits',
   ];
-  let payload: any = [];
+  let payload: any = null;
   let lastErr: any = null;
   for (const path of endpoints) {
     try {
       const { data } = await api.get(path);
       payload = (data as any)?.data ?? data;
-      lastListBasePath = path; // remember which namespace worked
+      lastListBasePath = path;
       break;
-    } catch (e) {
-      lastErr = e;
+    } catch (err) {
+      lastErr = err;
     }
   }
-  const list = Array.isArray(payload)
+  if (!payload && lastErr) throw lastErr;
+  const list: any[] = Array.isArray(payload)
     ? payload
     : Array.isArray(payload?.deposits)
     ? payload.deposits
+    : Array.isArray(payload?.items)
+    ? payload.items
     : [];
-  return (list as any[]).map((item) => ({
+  return list.map((item) => ({
     id: item.id ?? item._id,
     user: item.user || { name: item.user_name, email: item.user_email },
     amount:
@@ -67,6 +68,65 @@ export async function listAll() {
     proofUrl: item.proofImageUrl || item.proof_url || item.proofImageURL || item.proof,
     createdAt: item.createdAt || item.created_at || item.date,
   })) as Deposit[];
+}
+
+export async function listPaginated(page = 1, limit = 10) {
+  const buildUrl = (base: string) => {
+    const tmp = new URL(base, 'http://x');
+    const path = tmp.pathname + tmp.search;
+    const hasQuery = path.includes('?');
+    return `${path}${hasQuery ? '&' : '?'}page=${page}&limit=${limit}`;
+  };
+  const candidates = lastListBasePath
+    ? [lastListBasePath]
+    : ['/deposits/admin/all', '/admin/deposits', '/deposits', '/wallet/deposits', '/payments/deposits', '/transactions/deposits'];
+  let payload: any = null;
+  let baseUsed: string | null = null;
+  let lastErr: any = null;
+  for (const base of candidates) {
+    try {
+      const url = buildUrl(base);
+      const { data } = await api.get(url);
+      payload = (data as any)?.data ?? data;
+      baseUsed = base;
+      break;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  if (!payload && lastErr) throw lastErr;
+  if (baseUsed) lastListBasePath = baseUsed;
+  const items: any[] = Array.isArray(payload?.items)
+    ? payload.items
+    : Array.isArray(payload?.deposits)
+    ? payload.deposits
+    : Array.isArray(payload)
+    ? payload
+    : [];
+  const meta = {
+    page: Number(payload?.page || payload?.currentPage || page) || page,
+    pages: Number(payload?.pages || payload?.totalPages || 1) || 1,
+    total: Number(payload?.total || payload?.totalRecords || items.length) || items.length,
+    limit: Number(payload?.limit || limit) || limit,
+  };
+  const normalized = items.map((item: any) => ({
+    id: item.id ?? item._id,
+    user: item.user || { name: item.user_name, email: item.user_email },
+    amount:
+      typeof item.amountUSD === 'number'
+        ? item.amountUSD
+        : typeof item.amount_usd === 'number'
+        ? item.amount_usd
+        : typeof item.amount === 'number'
+        ? item.amount
+        : typeof item.amountPKR === 'number'
+        ? Number(item.amountPKR) / 283
+        : undefined,
+    status: item.status || item.state || item.approval_status,
+    proofUrl: item.proofImageUrl || item.proof_url || item.proofImageURL || item.proof,
+    createdAt: item.createdAt || item.created_at || item.date,
+  })) as Deposit[];
+  return { items: normalized, ...meta };
 }
 
 export async function getOne(id: string | number) {
