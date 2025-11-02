@@ -82,7 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <Shield className="text-green-600" size={20} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white">BSP Pakistan 🇵🇰</h1>
+              <h1 className="text-xl font-bold text-white">PakAdz Pakistan 🇵🇰</h1>
               <p className="text-green-100 text-sm">Admin Panel</p>
             </div>
           </div>
@@ -122,7 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">Admin User</p>
-              <p className="text-xs text-gray-500 truncate">admin@bsp.pk</p>
+              <p className="text-xs text-gray-500 truncate">admin@pakadz.pk</p>
             </div>
           </div>
           
