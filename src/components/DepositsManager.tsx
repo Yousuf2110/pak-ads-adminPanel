@@ -49,13 +49,24 @@ const DepositsManager: React.FC = () => {
 
   useEffect(() => { refresh(); }, []);
 
-  const openDetails = async (id: string | number) => {
+  const openDetails = async (idOrDeposit: string | number | Deposit) => {
+    const id = typeof idOrDeposit === 'object' ? (idOrDeposit.id as any) : idOrDeposit;
     setSelectedId(id);
+    if (typeof idOrDeposit === 'object') {
+      setSelected(idOrDeposit);
+    }
     try {
       const d = await getDeposit(id);
-      setSelected(d || null);
+      setSelected((prev) => {
+        if (!prev) return d || null;
+        return {
+          ...prev,
+          ...d,
+          user: { ...(prev.user || {}), ...(d?.user || {}) },
+        } as any;
+      });
     } catch {
-      setSelected(null);
+      // Keep whatever we have so the modal stays open
     }
   };
 
@@ -196,7 +207,7 @@ const DepositsManager: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
-                      onClick={() => openDetails(d.id)}
+                      onClick={() => openDetails(d)}
                       className="inline-flex items-center px-2 py-1 text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors"
                     >
                       <Eye size={12} className="mr-1" />
@@ -295,8 +306,60 @@ const DepositsManager: React.FC = () => {
                   <p className="font-medium">{selected.user?.name || selected.user?.email || '—'}</p>
                 </div>
                 <div>
+                  <p className="text-gray-500">Email</p>
+                  <p className="font-medium break-all">{selected.user?.email || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Phone</p>
+                  <p className="font-medium">{(selected.user as any)?.phone || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Referral Code</p>
+                  <p className="font-medium">{(selected.user as any)?.referralCode || '—'}</p>
+                </div>
+                <div>
                   <p className="text-gray-500">Amount</p>
                   <p className="font-medium">{typeof selected.amount === 'number' ? `$${selected.amount.toFixed(2)}` : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Status</p>
+                  <p className="font-medium capitalize">{selected.status || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Payment Method</p>
+                  <p className="font-medium">{(selected as any).paymentMethod || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Transaction ID</p>
+                  <p className="font-medium break-all">{(selected as any).transactionId || '—'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-gray-500">Description</p>
+                  <p className="font-medium whitespace-pre-wrap">{(selected as any).description || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Created</p>
+                  <p className="font-medium">{selected.createdAt ? new Date(selected.createdAt).toLocaleString() : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Updated</p>
+                  <p className="font-medium">{(selected as any).updatedAt ? new Date((selected as any).updatedAt).toLocaleString() : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Approved By</p>
+                  <p className="font-medium">{(selected as any).approvedBy ?? '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Rejected By</p>
+                  <p className="font-medium">{(selected as any).rejectedBy ?? '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Approved At</p>
+                  <p className="font-medium">{(selected as any).approvedAt ? new Date((selected as any).approvedAt).toLocaleString() : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Rejected At</p>
+                  <p className="font-medium">{(selected as any).rejectedAt ? new Date((selected as any).rejectedAt).toLocaleString() : '—'}</p>
                 </div>
               </div>
               {selected.proofUrl && (

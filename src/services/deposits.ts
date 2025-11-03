@@ -4,11 +4,19 @@ let lastListBasePath: string | null = null;
 
 export type Deposit = {
   id: string | number;
-  user?: { id?: string; name?: string; email?: string };
+  user?: { id?: string | number; name?: string; email?: string; phone?: string; referralCode?: string };
   amount?: number;
   status?: 'pending' | 'approved' | 'rejected' | string;
   proofUrl?: string;
   createdAt?: string;
+  updatedAt?: string;
+  paymentMethod?: string;
+  transactionId?: string;
+  description?: string;
+  approvedBy?: string | number | null;
+  rejectedBy?: string | number | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
 };
 
 export type DepositStats = {
@@ -67,6 +75,14 @@ export async function listAll() {
     status: item.status || item.state || item.approval_status,
     proofUrl: item.proofImageUrl || item.proof_url || item.proofImageURL || item.proof,
     createdAt: item.createdAt || item.created_at || item.date,
+    updatedAt: item.updatedAt || item.updated_at,
+    paymentMethod: item.paymentMethod || item.method || item.payment_method,
+    transactionId: item.transactionId || item.txid || item.transaction_id,
+    description: item.description || item.note || item.notes,
+    approvedBy: item.approvedBy ?? item.approved_by ?? null,
+    rejectedBy: item.rejectedBy ?? item.rejected_by ?? null,
+    approvedAt: item.approvedAt || item.approved_at || null,
+    rejectedAt: item.rejectedAt || item.rejected_at || null,
   })) as Deposit[];
 }
 
@@ -125,6 +141,14 @@ export async function listPaginated(page = 1, limit = 10) {
     status: item.status || item.state || item.approval_status,
     proofUrl: item.proofImageUrl || item.proof_url || item.proofImageURL || item.proof,
     createdAt: item.createdAt || item.created_at || item.date,
+    updatedAt: item.updatedAt || item.updated_at,
+    paymentMethod: item.paymentMethod || item.method || item.payment_method,
+    transactionId: item.transactionId || item.txid || item.transaction_id,
+    description: item.description || item.note || item.notes,
+    approvedBy: item.approvedBy ?? item.approved_by ?? null,
+    rejectedBy: item.rejectedBy ?? item.rejected_by ?? null,
+    approvedAt: item.approvedAt || item.approved_at || null,
+    rejectedAt: item.rejectedAt || item.rejected_at || null,
   })) as Deposit[];
   return { items: normalized, ...meta };
 }
@@ -167,6 +191,14 @@ export async function getOne(id: string | number) {
     status: detail?.status || detail?.state || detail?.approval_status,
     proofUrl: detail?.proofImageUrl || detail?.proof_url || detail?.proofImageURL || detail?.proof,
     createdAt: detail?.createdAt || detail?.created_at || detail?.date,
+    updatedAt: detail?.updatedAt || detail?.updated_at,
+    paymentMethod: detail?.paymentMethod || detail?.method || detail?.payment_method,
+    transactionId: detail?.transactionId || detail?.txid || detail?.transaction_id,
+    description: detail?.description || detail?.note || detail?.notes,
+    approvedBy: detail?.approvedBy ?? detail?.approved_by ?? null,
+    rejectedBy: detail?.rejectedBy ?? detail?.rejected_by ?? null,
+    approvedAt: detail?.approvedAt || detail?.approved_at || null,
+    rejectedAt: detail?.rejectedAt || detail?.rejected_at || null,
   } as Deposit;
 }
 
